@@ -9,11 +9,13 @@ cachet:
   server: https://cachet.example.com
 
 settings:
+  # IT Service which will be a root for Cachet Components
+  root_service: 'Status Page'
   # How often check Zabbix for new incidents
-  update_inc_interval: 60  # in seconds
+  update_inc_interval: 120  # in seconds
   # How often check Zabbix for new IT Services
-  update_comp_interval: 10  # in seconds
-  # Log level https://docs.python.org/3.5/library/logging.html#levels
+  update_comp_interval: 3600  # in seconds
+  # Log level https://docs.python.org/3.4/library/logging.html#levels
   log_level: INFO
   # Additional logging level for requests module
   log_level_requests: WARNING

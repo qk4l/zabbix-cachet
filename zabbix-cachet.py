@@ -3,6 +3,8 @@
 This script populated Cachet of Zabbix IT Services
 """
 import sys
+import os
+import datetime
 import json
 import requests
 import time
@@ -250,6 +252,10 @@ class Cachet:
         params = self.get_component(id)['data']
         params.update(kwargs)
         data = self._http_put(url, params)
+        logging.info('Component {name} (id={id}) was updated. Status - {status}'.format(
+            name=data['data']['name'],
+            id=id,
+            status=data['data']['status_name']))
         return data
 
     def get_components_gr(self, name=None):
@@ -278,7 +284,9 @@ class Cachet:
         componenets_gr_id = self.get_components_gr(name)
         if componenets_gr_id['id'] == 0:
             url = 'components/groups'
-            params = {'name': name}
+            # TODO: make if possible to configure default collapsed value
+            params = {'name': name, 'collapsed': 1}
+            logging.info(params)
             data = self._http_post(url, params)
             logging.info('Component Group {} was created.'.format(params['name']))
             return data['data']
@@ -291,15 +299,14 @@ class Cachet:
         @param component_id: string
         @return: dict of data
         """
+        # TODO: make search by name
         url = 'incidents'
         data = self._http_get(url)
         total_pages = int(data['meta']['pagination']['total_pages'])
         for page in range(total_pages, 0, -1):
-            # print(page, component_id)
             data = self._http_get(url, params={'page': page})
             data_sorted = sorted(data['data'], key=itemgetter('id'), reverse=True)
             for incident in data_sorted:
-                # if component_id == 32: print(incident)
                 if str(incident['component_id']) == str(component_id):
                     # Convert status to str
                     incident['status'] = str(incident['status'])
@@ -318,9 +325,10 @@ class Cachet:
         url = 'incidents'
         params.update(kwargs)
         data = self._http_post(url, params)
-        logging.info('Incident {name} was created for component id {component_id}.'.format(name=params['name'],
-                                                                                           component_id=params[
-                                                                                               'component_id']))
+        logging.info('Incident {name} (id={incident_id}) was created for component id {component_id}.'.format(
+            name=params['name'],
+            incident_id=data['data']['id'],
+            component_id=params['component_id']))
         return data['data']
 
     def upd_incident(self, id, **kwargs):
@@ -335,8 +343,8 @@ class Cachet:
         url = 'incidents/' + str(id)
         params = kwargs
         data = self._http_put(url, params)
-        logging.info('Incident ID {id} was updated. New status - {status}.'.format(id=id,
-                                                                                   status=params['status']))
+        logging.info('Incident ID {id} was updated. Status - {status}.'.format(id=id,
+                                                                               status=data['data']['human_status']))
         return data
 
 
@@ -369,16 +377,16 @@ def triggers_watcher(service_map):
             trigger = zapi.get_trigger(i['triggerid'])
             # Check if incident already registered
             # Trigger non Active
-            if trigger['value'] == '0':
+            if str(trigger['value']) == '0':
                 component_status = cachet.get_component(i['component_id'])['data']['status']
                 # And component in operational mode
-                if component_status == '1':
+                if str(component_status) == '1':
                     continue
                 else:
                     # And component not operational mode
                     last_inc = cachet.get_incident(i['component_id'])
                     # print(last_inc)
-                    if last_inc['id'] != '0':
+                    if str(last_inc['id']) != '0':
                         cachet.upd_incident(last_inc['id'], status=4, component_id=i['component_id'],
                                             component_status=1)
                     # Incident does not exist. Just change component status
@@ -388,11 +396,16 @@ def triggers_watcher(service_map):
             # Trigger in Active state
             elif trigger['value'] == '1':
                 zbx_event = zapi.get_event(i['triggerid'])
+                inc_name = trigger['description']
                 if zbx_event['acknowledged'] == '1':
                     inc_status = 2
                     for msg in zbx_event['acknowledges']:
-                        # TODO: Add time and formatting
-                        inc_msg += msg['name'] + ' ' + msg['surname'] + ': ' + msg['message'] + '\n\n'
+                        # TODO: Add timezone?
+                        #       Move format to config file
+                        ack_time = datetime.datetime.fromtimestamp(int(msg['clock'])).strftime('%b %d, %H:%M')
+                        inc_msg += '{message} \n###### {ack_time} {name} {surname}\n'.format(
+                                ack_time=ack_time, name=msg['name'],
+                                surname=msg['surname'], message=msg['message'])
                 else:
                     inc_status = 1
                 if int(trigger['priority']) >= 4:
@@ -402,7 +415,6 @@ def triggers_watcher(service_map):
                 else:
                     comp_status = 2
 
-                inc_name = trigger['description']
                 if not inc_msg and trigger['comments']:
                     inc_msg = trigger['comments']
                 elif not inc_msg:
@@ -413,14 +425,17 @@ def triggers_watcher(service_map):
                 last_inc = cachet.get_incident(i['component_id'])
                 # Incident not registered
                 if last_inc['status'] in ('-1', '4'):
-                    # print('create', last_inc)
+                    # TODO: added incident_date
+                    #incident_date = datetime.datetime.fromtimestamp(int(trigger['lastchange'])).strftime('%d/%m/%Y %H:%M')
                     cachet.new_incidents(name=inc_name, message=inc_msg, status=inc_status,
                                          component_id=i['component_id'], component_status=comp_status)
 
                 # Incident already registered
                 elif last_inc['status'] not in ('-1', '4'):
-                    cachet.upd_incident(last_inc['id'], message=inc_msg, status=inc_status,
-                                        component_status=comp_status)
+                    # Only incident message can change. So check if this have happened
+                    if last_inc['message'].strip() != inc_msg.strip():
+                        cachet.upd_incident(last_inc['id'], message=inc_msg, status=inc_status,
+                                            component_status=comp_status)
 
         else:
             # TODO: ServiceID
@@ -500,7 +515,11 @@ def read_config(config_f):
 
 
 if __name__ == '__main__':
-    config = read_config('config-example.yml')
+    if os.getenv('ZABBIX-CACHET-CONF') is not None:
+        CONFIG_F = os.environ['ZABBIX-CACHET-CONF']
+    else:
+        CONFIG_F = os.path.dirname(os.path.realpath(__file__)) + '/config.yml'
+    config = read_config(CONFIG_F)
     ZABBIX = config['zabbix']
     CACHET = config['cachet']
     SETTINGS = config['settings']
@@ -514,14 +533,15 @@ if __name__ == '__main__':
         datefmt='%Y-%m-%d %H:%M:%S %Z'
     )
     logging.getLogger("requests").setLevel(log_level_requests)
+
+    inc_update_t = threading.Thread()
+    event = threading.Event()
     try:
         zapi = Zabbix(ZABBIX['server'], ZABBIX['user'], ZABBIX['pass'])
         cachet = Cachet(CACHET['server'], CACHET['token'])
         zbxtr2cachet = ''
-        inc_update_t = threading.Thread()
-        event = threading.Event()
         while True:
-            itservices = (zapi.get_itservices('Status Page'))
+            itservices = (zapi.get_itservices(SETTINGS['root_service']))
             # Create Cachet components and components groups
             zbxtr2cachet_new = init_cachet(itservices)
             # Restart triggers_watcher_worker
@@ -535,6 +555,7 @@ if __name__ == '__main__':
                 event.clear()
                 inc_update_t = threading.Thread(name='Trigger Watcher',
                                                 target=triggers_watcher_worker,
+                                                daemon=True,
                                                 args=(zbxtr2cachet, SETTINGS['update_inc_interval'], event))
                 inc_update_t.start()
             time.sleep(SETTINGS['update_comp_interval'])
