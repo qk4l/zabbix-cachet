@@ -1,0 +1,19 @@
+---
+zabbix:
+  user: zabbix_api_user
+  pass: StrongSecretPa$$
+  server: https://zabbix.example.com
+
+cachet:
+  token: TokenFromCachet
+  server: https://cachet.example.com
+
+settings:
+  # How often check Zabbix for new incidents
+  update_inc_interval: 60  # in seconds
+  # How often check Zabbix for new IT Services
+  update_comp_interval: 10  # in seconds
+  # Log level https://docs.python.org/3.5/library/logging.html#levels
+  log_level: INFO
+  # Additional logging level for requests module
+  log_level_requests: WARNING
