@@ -1,15 +1,22 @@
 # Zabbix-Cachet
-This is python script which provide synchronisation beetwen [Zabbix IT Services](https://www.zabbix.com/documentation/3.0/manual/it_services)
+This is python script which provide synchronisation between [Zabbix IT Services](https://www.zabbix.com/documentation/3.0/manual/it_services)
 and [Cachet](https://cachethq.io/)
 
 # Description
 
-DRAFT
+The idea of Zabbix-Cachet is providing the easiest way to export Zabbix terms to Cachet.
+With this script you can maintain Cachet though Zabbix.
 
-# Feartures
+Zabbix-Cachet reads pre-configured [Zabbix IT Services](https://www.zabbix.com/documentation/3.0/manual/it_services) and automatically creates Cachet components.
+After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you IT Services) and manipulate with Cachet incidents and Component statuses based on triggers.
+
+# Features
+* Automatically creates Cachet Components and Components group
+* Automatically creates Cachet Incidents and update them with [acknowleddgment messages](https://www.zabbix.com/documentation/3.0/manual/acknowledges)
+* Allow to specify root IT service where Zabbix-Cachet will work
 
 
-# Instalithion
+# Installation
 1. Clone this repository
 2. Rename `config-example.yml` to `config.yml` and fill a file with your settings.
 3. Install python libs from `requirements.txt`
