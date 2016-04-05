@@ -22,6 +22,13 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 3. Install python libs from `requirements.txt`
 4. Launch `zabbix-cachet.py`
 
+# Docker Installation
+1. Create `/etc/zabbix-cachet.yml` file based `config-example.yml`.
+2. Run Docker container
+```
+docker run --name zabbix-cachet -v /etc/zabbix-cachet.yml:/config.yml qk4l/zabbix-cachet
+```
+3. Drink a cup of tea (optional)
 
 # Configuration
 

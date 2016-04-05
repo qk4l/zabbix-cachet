@@ -102,7 +102,7 @@ class Zabbix:
             child_services = []
             for dependency in service['dependencies']:
                 child_services.append(dependency['serviceid'])
-                child_services = self.zapi.service.get(
+            child_services = self.zapi.service.get(
                     selectDependencies='extend',
                     serviceids=child_services)
             services[idx]['dependencies'] = child_services
@@ -285,8 +285,7 @@ class Cachet:
         if componenets_gr_id['id'] == 0:
             url = 'components/groups'
             # TODO: make if possible to configure default collapsed value
-            params = {'name': name, 'collapsed': 1}
-            logging.info(params)
+            params = {'name': name, 'collapsed': 2}
             data = self._http_post(url, params)
             logging.info('Component Group {} was created.'.format(params['name']))
             return data['data']
@@ -426,7 +425,7 @@ def triggers_watcher(service_map):
                 # Incident not registered
                 if last_inc['status'] in ('-1', '4'):
                     # TODO: added incident_date
-                    #incident_date = datetime.datetime.fromtimestamp(int(trigger['lastchange'])).strftime('%d/%m/%Y %H:%M')
+                    # incident_date = datetime.datetime.fromtimestamp(int(trigger['lastchange'])).strftime('%d/%m/%Y %H:%M')
                     cachet.new_incidents(name=inc_name, message=inc_msg, status=inc_status,
                                          component_id=i['component_id'], component_status=comp_status)
 
@@ -455,6 +454,7 @@ def triggers_watcher_worker(service_map, interval, e):
     """
     logging.info('start trigger watcher')
     while not e.is_set():
+        logging.debug('check Zabbix triggers')
         triggers_watcher(service_map)
         time.sleep(interval)
     logging.info('end trigger watcher')
