@@ -15,6 +15,19 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 * Automatically creates Cachet Incidents and update them with [acknowleddgment messages](https://www.zabbix.com/documentation/3.0/manual/acknowledges)
 * Allow to specify root IT service where Zabbix-Cachet will work
 
+# Example
+## Zabbix IT Services.
+* _Cachet_ - `root_service` for zabbix-cachet script.
+* _Bitbucket_, _Network Connectivity_ - parent services. They will be _Components Groups_ in Cachet.
+* _GIT https_, _GIT ssh_ - Components in Cachet. Do not forget to set Zabbix trigger to this group.
+![Zabbix IT Services](https://cloud.githubusercontent.com/assets/8394059/14297272/0b79bc1a-fb8f-11e5-820f-5460cc735cda.png)
+
+## Cachet
+![Cachet Components](https://cloud.githubusercontent.com/assets/8394059/14298058/c5c8b806-fb93-11e5-83f6-ff32aeb5fb4d.png)
+
+# Requirements
+* Cachet 2.2
+* Zabbix 2.X (tested only 2.4), 3.0
 
 # Installation
 1. Clone this repository
