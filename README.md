@@ -20,6 +20,7 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 * _Cachet_ - `root_service` for zabbix-cachet script.
 * _Bitbucket_, _Network Connectivity_ - parent services. They will be _Components Groups_ in Cachet.
 * _GIT https_, _GIT ssh_ - Components in Cachet. Do not forget to set Zabbix trigger to this group.
+
 ![Zabbix IT Services](https://cloud.githubusercontent.com/assets/8394059/14297272/0b79bc1a-fb8f-11e5-820f-5460cc735cda.png)
 
 ## Cachet
@@ -38,9 +39,9 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 # Docker Installation
 1. Create `/etc/zabbix-cachet.yml` file based `config-example.yml`.
 2. Run Docker container
-```
-docker run --name zabbix-cachet -v /etc/zabbix-cachet.yml:/config.yml qk4l/zabbix-cachet
-```
+    ```
+    docker run --name zabbix-cachet -v /etc/zabbix-cachet.yml:/config.yml qk4l/zabbix-cachet
+    ```
 3. Drink a cup of tea (optional)
 
 # Configuration
