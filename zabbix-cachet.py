@@ -490,6 +490,7 @@ def init_cachet(services):
                                      'component_id': component['id'],
                                      'component_name': component['name']
                                      })
+                data.append(zxb2cachet_i)
         else:
             # Component with trigger
             if zbx_service['triggerid']:
@@ -500,7 +501,7 @@ def init_cachet(services):
                 zxb2cachet_i = {'triggerid': zbx_service['triggerid'],
                                 'component_id': component['id'],
                                 'component_name': component['name']}
-        data.append(zxb2cachet_i)
+            data.append(zxb2cachet_i)
     return data
 
 
@@ -548,6 +549,7 @@ if __name__ == '__main__':
             if zbxtr2cachet != zbxtr2cachet_new:
                 zbxtr2cachet = zbxtr2cachet_new
                 logging.info('Restart triggers_watcher worker')
+                logging.debug('List of watching triggers {}'.format(str(zbxtr2cachet)))
                 event.set()
                 # Wait until tread die
                 while inc_update_t.is_alive():
