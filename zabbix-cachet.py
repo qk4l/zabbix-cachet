@@ -16,6 +16,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
+__version__ = '0.1'
 
 
 def client_http_error(url, code, message):
@@ -534,7 +535,7 @@ if __name__ == '__main__':
         datefmt='%Y-%m-%d %H:%M:%S %Z'
     )
     logging.getLogger("requests").setLevel(log_level_requests)
-
+    logging.info('Zabbix Cachet v.{} started'.format(__version__))
     inc_update_t = threading.Thread()
     event = threading.Event()
     try:
