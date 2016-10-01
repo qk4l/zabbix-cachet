@@ -25,7 +25,7 @@ def client_http_error(url, code, message):
 
 
 class Zabbix:
-    def __init__(self, server, user, password):
+    def __init__(self, server, user, password, verify=True):
         """
         Init zabbix class for further needs
         :param user: string
@@ -40,6 +40,7 @@ class Zabbix:
         s.auth = (user, password)
 
         self.zapi = ZabbixAPI(server, s)
+        self.zapi.session.verify = verify
         self.zapi.login(user, password)
 
     def get_trigger(self, triggerid):
@@ -111,7 +112,7 @@ class Zabbix:
 
 
 class Cachet:
-    def __init__(self, server, token):
+    def __init__(self, server, token, verify=True):
         """
         Init Cachet class for further needs
         : param server: string
@@ -121,6 +122,7 @@ class Cachet:
         self.server = server + '/api/v1/'
         self.token = token
         self.headers = {'X-Cachet-Token': self.token, 'Accept': 'application/json; indent=4'}
+        self.verify = verify
 
     def _http_post(self, url, params):
         """
@@ -131,7 +133,7 @@ class Cachet:
         """
         url = self.server + url
         try:
-            r = requests.post(url=url, data=params, headers=self.headers)
+            r = requests.post(url=url, data=params, headers=self.headers, verify=self.verify)
         except requests.exceptions.RequestException as e:
             raise client_http_error(url, None, e)
         # r.raise_for_status()
@@ -152,7 +154,7 @@ class Cachet:
             params = {}
         url = self.server + url
         try:
-            r = requests.get(url=url, headers=self.headers, params=params)
+            r = requests.get(url=url, headers=self.headers, params=params, verify=self.verify)
         except requests.exceptions.RequestException as e:
             raise client_http_error(url, None, e)
         # r.raise_for_status()
@@ -171,7 +173,7 @@ class Cachet:
         """
         url = self.server + url
         try:
-            r = requests.put(url=url, json=params, headers=self.headers)
+            r = requests.put(url=url, json=params, headers=self.headers, verify=self.verify)
         except requests.exceptions.RequestException as e:
             raise client_http_error(url, None, e)
         # r.raise_for_status()
@@ -517,8 +519,8 @@ def read_config(config_f):
 
 
 if __name__ == '__main__':
-    if os.getenv('ZABBIX-CACHET-CONF') is not None:
-        CONFIG_F = os.environ['ZABBIX-CACHET-CONF']
+    if os.getenv('CONFIG_FILE') is not None:
+        CONFIG_F = os.environ['CONFIG_FILE']
     else:
         CONFIG_F = os.path.dirname(os.path.realpath(__file__)) + '/config.yml'
     config = read_config(CONFIG_F)
@@ -539,8 +541,8 @@ if __name__ == '__main__':
     inc_update_t = threading.Thread()
     event = threading.Event()
     try:
-        zapi = Zabbix(ZABBIX['server'], ZABBIX['user'], ZABBIX['pass'])
-        cachet = Cachet(CACHET['server'], CACHET['token'])
+        zapi = Zabbix(ZABBIX['server'], ZABBIX['user'], ZABBIX['pass'], ZABBIX['https-verify'])
+        cachet = Cachet(CACHET['server'], CACHET['token'], CACHET['https-verify'])
         zbxtr2cachet = ''
         while True:
             itservices = (zapi.get_itservices(SETTINGS['root_service']))

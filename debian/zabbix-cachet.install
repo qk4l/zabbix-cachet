@@ -1,0 +1,4 @@
+#!/usr/bin/dh-exec
+config.yml => /etc/zabbix-cachet.yml
+zabbix-cachet.env => /etc/default/zabbix-cachet
+zabbix-cachet.py => /usr/bin/zabbix-cachet
