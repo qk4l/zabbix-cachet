@@ -33,7 +33,12 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 # Installation
 
 ## apt
-1. Add the BeryJu.org APT Repository: `wget -O - -q https://apt.beryju.org/install.sh | bash`
+1. Add the BeryJu.org APT Repository: 
+```bash
+wget -O - -q https://apt.beryju.org/public.key | apt-key add - 
+echo "deb http://apt.beryju.org/ stable beryjuorg" > /etc/apt/sources.list.d/beryjuorg.list
+apt-get update -qq 
+```
 2. Install the package: `apt-get install zabbix-cachet`
 3. Configure it: `nano /etc/zabbix-cachet.yml`
 4. Restart it: `systemctl enable zabbix-cachet && systemctl restart zabbix-cachet`
