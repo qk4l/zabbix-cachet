@@ -1,17 +1,19 @@
 ---
 zabbix:
-  user: zabbix_api_user
-  pass: StrongSecretPa$$
-  server: https://zabbix.example.com
+  user: user
+  pass: pass
+  server: zabbix-server
+  https-verify: true
 
 cachet:
-  token: TokenFromCachet
-  server: https://cachet.example.com
+  token: api token
+  server: cachet-server
+  https-verify: true
 
 settings:
   # IT Service which will be a root for Cachet Components
   # Leave it empty if you want to use /
-  root_service: 'Status Page'
+  root_service: ''
   # How often check Zabbix for new incidents
   update_inc_interval: 120  # in seconds
   # How often check Zabbix for new IT Services

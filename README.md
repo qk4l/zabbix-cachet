@@ -31,6 +31,19 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 * Zabbix 2.X (tested only 2.4), 3.0
 
 # Installation
+
+## apt
+1. Add the BeryJu.org APT Repository: 
+```bash
+wget -O - -q https://apt.beryju.org/public.key | apt-key add - 
+echo "deb http://apt.beryju.org/ stable beryjuorg" > /etc/apt/sources.list.d/beryjuorg.list
+apt-get update -qq 
+```
+2. Install the package: `apt-get install zabbix-cachet`
+3. Configure it: `nano /etc/zabbix-cachet.yml`
+4. Restart it: `systemctl enable zabbix-cachet && systemctl restart zabbix-cachet`
+
+## direct
 1. Clone this repository
 2. Rename `config-example.yml` to `config.yml` and fill a file with your settings.
 3. Install python libs from `requirements.txt`
