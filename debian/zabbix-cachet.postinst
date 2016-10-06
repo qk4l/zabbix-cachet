@@ -1,3 +1,5 @@
 #!/bin/bash
 pip3 install pyzabbix==0.7.4
 chmod 700 /etc/zabbix-cachet.yml
+systemctl status zabbix-cachet.service
+exit 0

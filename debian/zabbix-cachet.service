@@ -1,0 +1,13 @@
+[Unit]
+Description=Zabbix-Cachet
+After=syslog.target network.target
+Requires=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/zabbix-cachet
+Environment=CONFIG_FILE=/etc/zabbix-cachet.yml
+
+[Install]
+WantedBy=multi-user.target
+
