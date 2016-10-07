@@ -1,3 +1,9 @@
+zabbix-cachet (1.0.2) unstable; urgency=high
+
+  * Fix missing SystemD service
+
+ -- BeryJu.org <support@beryju.org>  Thu, 06 Oct 2016 22:23:06 +0200
+
 zabbix-cachet (1.0.1) unstable; urgency=medium
 
   * Rename upstream config-file
