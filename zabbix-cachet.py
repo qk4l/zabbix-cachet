@@ -16,7 +16,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '0.1'
+__version__ = '0.2'
 
 
 def client_http_error(url, code, message):
@@ -89,7 +89,11 @@ class Zabbix:
             root_service = self.zapi.service.get(
                 selectDependencies='extend',
                 filter={'name': root})
-            root_service = root_service[0]
+            try:
+                root_service = root_service[0]
+            except:
+                logging.error('Can not find "{}" service in Zabbix'.format(root))
+                sys.exit(1)
             services = []
             for dependency in root_service['dependencies']:
                 services.append(dependency['serviceid'])
@@ -100,6 +104,9 @@ class Zabbix:
             services = self.zapi.service.get(
                 selectDependencies='extend',
                 output='extend')
+        if not services:
+            logging.error('Can not find any child service for "{}"'.format(root))
+            return []
         for idx, service in enumerate(services):
             child_services = []
             for dependency in service['dependencies']:
@@ -236,6 +243,7 @@ class Cachet:
         if component['id'] == 0 or component['group_id'] != params['group_id']:
             url = 'components'
             # params = {'name': name, 'link': link, 'description': description, 'status': status}
+            logging.debug('Creating Cachet component {name}...'.format(name=params['name']))
             data = self._http_post(url, params)
             logging.info('Component {name} was created in group id {group_id}.'.format(name=params['name'],
                                                                                        group_id=data['data'][
@@ -289,6 +297,7 @@ class Cachet:
             url = 'components/groups'
             # TODO: make if possible to configure default collapsed value
             params = {'name': name, 'collapsed': 2}
+            logging.debug('Creating Component Group {}...'.format(params['name']))
             data = self._http_post(url, params)
             logging.info('Component Group {} was created.'.format(params['name']))
             return data['data']
@@ -497,6 +506,10 @@ def init_cachet(services):
         else:
             # Component with trigger
             if zbx_service['triggerid']:
+                if int(zbx_service['triggerid']) == 0:
+                    logging.error('Zabbix Service with service id = {} does '
+                                  'not have trigger or child service'.format(zbx_service['serviceid']))
+                    continue
                 trigger = zapi.get_trigger(zbx_service['triggerid'])
                 component = cachet.new_components(zbx_service['name'], link=trigger['url'],
                                                   description=trigger['description'])
@@ -545,9 +558,17 @@ if __name__ == '__main__':
         cachet = Cachet(CACHET['server'], CACHET['token'], CACHET['https-verify'])
         zbxtr2cachet = ''
         while True:
+            logging.debug('Getting list of Zabbix IT Services ...')
             itservices = (zapi.get_itservices(SETTINGS['root_service']))
+            logging.debug('Zabbix IT Services: {}'.format(itservices))
             # Create Cachet components and components groups
+            logging.debug('Syncing Zabbix with Cachet...')
             zbxtr2cachet_new = init_cachet(itservices)
+            if not zbxtr2cachet_new:
+                logging.error('Sorry, can not create Zabbix <> Cachet mapping for you. Please check above errors')
+                sys.exit(1)
+            else:
+                logging.info('Successfully synced Cachet components with Zabbix Services')
             # Restart triggers_watcher_worker
             if zbxtr2cachet != zbxtr2cachet_new:
                 zbxtr2cachet = zbxtr2cachet_new
@@ -560,8 +581,8 @@ if __name__ == '__main__':
                 event.clear()
                 inc_update_t = threading.Thread(name='Trigger Watcher',
                                                 target=triggers_watcher_worker,
-                                                daemon=True,
                                                 args=(zbxtr2cachet, SETTINGS['update_inc_interval'], event))
+                inc_update_t.daemon = True
                 inc_update_t.start()
             time.sleep(SETTINGS['update_comp_interval'])
 
