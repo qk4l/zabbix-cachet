@@ -32,23 +32,6 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 
 # Installation
 
-## apt
-1. Add the BeryJu.org APT Repository: 
-```bash
-wget -O - -q https://apt.beryju.org/public.key | apt-key add - 
-echo "deb http://apt.beryju.org/ stable beryjuorg" > /etc/apt/sources.list.d/beryjuorg.list
-apt-get update -qq 
-```
-2. Install the package: `apt-get install zabbix-cachet`
-3. Configure it: `nano /etc/zabbix-cachet.yml`
-4. Restart it: `systemctl enable zabbix-cachet && systemctl restart zabbix-cachet`
-
-## direct
-1. Clone this repository
-2. Rename `config-example.yml` to `config.yml` and fill a file with your settings.
-3. Install python libs from `requirements.txt`
-4. Launch `zabbix-cachet.py`
-
 # Docker Installation
 1. Create `/etc/zabbix-cachet.yml` file based `config-example.yml`.
 2. Run Docker container
@@ -57,7 +40,24 @@ apt-get update -qq
     ```
 3. Drink a cup of tea (optional)
 
+## direct
+1. Clone this repository
+2. Rename `config-example.yml` to `config.yml` and fill a file with your settings.
+3. Install python libs from `requirements.txt`
+4. Launch `zabbix-cachet.py`
+
+## apt
+1. Add the BeryJu.org APT Repository:
+```bash
+wget -O - -q https://apt.beryju.org/public.key | apt-key add -
+echo "deb http://apt.beryju.org/ stable beryjuorg" > /etc/apt/sources.list.d/beryjuorg.list
+apt-get update -qq
+```
+2. Install the package: `apt-get install zabbix-cachet`
+3. Configure it: `nano /etc/zabbix-cachet.yml`
+4. Restart it: `systemctl enable zabbix-cachet && systemctl restart zabbix-cachet`
+
 # Configuration
 
 Settings are storing in `config.yml` file which should be placed in script's working directory.
-If you want to use another path for `config.yml` use `ZABBIX-CACHET-CONF` environment variable.
+If you want to use another path for `config.yml` use `CONFIG_FILE` environment variable.
