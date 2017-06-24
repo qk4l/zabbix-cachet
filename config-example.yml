@@ -22,3 +22,4 @@ settings:
   log_level: INFO
   # Additional logging level for requests module
   log_level_requests: WARNING
+  timezone:
