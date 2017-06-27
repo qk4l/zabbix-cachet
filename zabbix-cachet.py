@@ -16,7 +16,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '0.2'
+__version__ = '0.2.1'
 
 
 def client_http_error(url, code, message):
@@ -203,16 +203,23 @@ class Cachet:
     def get_components(self, name=None):
         """
         Get all registered components or return a component details if name specified
+        Please note, it name was not defined method returns only last page of data
         @param name: string
         @return: dict of data or list
         """
         url = 'components'
         data = self._http_get(url)
+        total_pages = int(data['meta']['pagination']['total_pages'])
         if name:
             components = {'data': []}
-            for component in data['data']:
-                if component['name'] == name:
-                    components['data'].append(component)
+            for page in range(total_pages, 0, -1):
+                if page == 1:
+                    data_page = data
+                else:
+                    data_page = self._http_get(url, params={'page': page})
+                for component in data_page['data']:
+                    if component['name'] == name:
+                        components['data'].append(component)
             if len(components['data']) < 1:
                 return {'id': 0, 'name': 'Does not exists'}
             elif len(components['data']) == 1:
@@ -272,17 +279,23 @@ class Cachet:
     def get_components_gr(self, name=None):
         """
         Get all registered components group or return a component group details if name specified
+        Please note, it name was not defined method returns only last page of data
         @param name: string
         @return: dict of data
         """
         url = 'components/groups'
         data = self._http_get(url)
+        total_pages = int(data['meta']['pagination']['total_pages'])
         if name:
-            for group in data['data']:
-                if group['name'] == name:
-                    return group
-            else:
-                return {'id': 0, 'name': 'Does not exists'}
+            for page in range(total_pages, 0, -1):
+                if page == 1:
+                    data_page = data
+                else:
+                    data_page = self._http_get(url, params={'page': page})
+                for group in data_page['data']:
+                    if group['name'] == name:
+                        return group
+            return {'id': 0, 'name': 'Does not exists'}
         return data
 
     def new_components_gr(self, name):

@@ -27,7 +27,7 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 ![Cachet Components](https://cloud.githubusercontent.com/assets/8394059/14298058/c5c8b806-fb93-11e5-83f6-ff32aeb5fb4d.png)
 
 # Requirements
-* Cachet 2.2
+* Cachet 2.2+
 * Zabbix 2.X (tested only 2.4), 3.0
 
 # Installation
