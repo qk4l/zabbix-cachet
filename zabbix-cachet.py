@@ -421,9 +421,9 @@ def triggers_watcher(service_map):
             elif trigger['value'] == '1':
                 zbx_event = zapi.get_event(i['triggerid'])
                 inc_name = trigger['description']
-                if zbx_event['acknowledged'] == '1':
+                if zbx_event[0]['acknowledged'] == '1':
                     inc_status = 2
-                    for msg in zbx_event['acknowledges']:
+                    for msg in zbx_event[0]['acknowledges']:
                         # TODO: Add timezone?
                         #       Move format to config file
                         ack_time = datetime.datetime.fromtimestamp(int(msg['clock'])).strftime('%b %d, %H:%M')
