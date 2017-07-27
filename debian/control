@@ -2,7 +2,6 @@ Source: zabbix-cachet
 Section: devel
 Priority: optional
 Maintainer: Artem Alexandrov <qk4l@tem4uk.ru>
-Uploaders: Jens Langhammer <jens@beryju.org>, BeryJu.org <support@beryju.org>
 Build-Depends: debhelper (>> 5.0.0), dh-systemd (>= 1.5), dh-exec
 Standards-Version: 3.7.2
 

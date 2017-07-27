@@ -16,7 +16,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '0.2.1'
+__version__ = '1.2.1'
 
 
 def client_http_error(url, code, message):

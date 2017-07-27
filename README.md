@@ -40,19 +40,18 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
     ```
 3. Drink a cup of tea (optional)
 
-## direct
+## Git
 1. Clone this repository
 2. Rename `config-example.yml` to `config.yml` and fill a file with your settings.
 3. Install python libs from `requirements.txt`
 4. Launch `zabbix-cachet.py`
 
-## apt
-1. Add the BeryJu.org APT Repository:
-```bash
-wget -O - -q https://apt.beryju.org/public.key | apt-key add -
-echo "deb http://apt.beryju.org/ stable beryjuorg" > /etc/apt/sources.list.d/beryjuorg.list
-apt-get update -qq
-```
+## Apt
+1. Add official Zabbix-Cachet [PPA](https://launchpad.net/~reg-tem4uk/+archive/ubuntu/zabbix-cachet):
+    ```bash
+    add-apt-repository ppa:reg-tem4uk/zabbix-cachet
+    apt-get update
+    ```
 2. Install the package: `apt-get install zabbix-cachet`
 3. Configure it: `nano /etc/zabbix-cachet.yml`
 4. Restart it: `systemctl enable zabbix-cachet && systemctl restart zabbix-cachet`

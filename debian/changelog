@@ -1,3 +1,9 @@
+zabbix-cachet (1.2.1) unstable; urgency=medium
+
+  * Sync with upstream version. Support paging for Cachet Components
+
+ -- Artem Aleksandrov <qk4l@tem4uk.ru>  Thu, 27 Jul 2017 22:44:12 +0300
+
 zabbix-cachet (1.0.2) unstable; urgency=high
 
   * Fix missing SystemD service

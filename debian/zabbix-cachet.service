@@ -10,4 +10,3 @@ Environment=CONFIG_FILE=/etc/zabbix-cachet.yml
 
 [Install]
 WantedBy=multi-user.target
-
