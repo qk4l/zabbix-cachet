@@ -2,12 +2,12 @@
 zabbix:
   user: user
   pass: pass
-  server: zabbix-server
+  server: https://zabbix.example.com
   https-verify: true
 
 cachet:
   token: api token
-  server: cachet-server
+  server: https://cachet.example.com
   https-verify: true
 
 settings:
