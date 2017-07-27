@@ -67,7 +67,7 @@ class Zabbix:
             object=0,
             value=1,
             objectids=triggerid)
-        if len(zbx_event) > 1:
+        if len(zbx_event) >= 1:
             return zbx_event[-1]
         return zbx_event
 
