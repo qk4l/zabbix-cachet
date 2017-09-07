@@ -28,7 +28,7 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 
 # Requirements
 * Cachet 2.2+
-* Zabbix 2.X (tested only 2.4), 3.0
+* Zabbix 2.2, 2.4, 3.0, 3.2
 
 # Installation
 

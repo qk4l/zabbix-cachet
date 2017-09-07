@@ -14,11 +14,38 @@ settings:
   # IT Service which will be a root for Cachet Components
   # Leave it empty if you want to use /
   root_service: ''
+
   # How often check Zabbix for new incidents
   update_inc_interval: 120  # in seconds
   # How often check Zabbix for new IT Services
   update_comp_interval: 3600  # in seconds
+
+
   # Log level https://docs.python.org/3.4/library/logging.html#levels
   log_level: INFO
   # Additional logging level for requests module
   log_level_requests: WARNING
+
+# Templates for incident displaying
+# Fill free to use Markdown
+templates:
+  # Template for acknowledgements (acknowledgement)
+  # Supported fields:
+  #   message: acknowledgement msg
+  #   ack_time: acknowledgement time
+  #   author: First name + Surname of Zabbix user
+  acknowledgement: "{message}\n\n###### {ack_time} by {author}\n\n______\n"
+
+  # Template for new incinents (investigating)
+  # Supported fields:
+  #   group: Cachet Group
+  #   component: Cachet Component
+  #   time: Zabbix event time
+  #   trigger_name: Zabbix trigger name
+  #   trigger_description: Zabbix trigger description (comment)
+  investigating: "{group} | {component} check **failed** - {time}\n\n```{trigger_name}```"
+
+  # Template for resolved incinents (resolving)
+  # Supported fields:
+  #   time: Incindent resolved time in Cachet
+  resolving: "__Resolved__ - {time}\n\n______\n"
