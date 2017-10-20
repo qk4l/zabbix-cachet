@@ -12,7 +12,7 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 
 # Features
 * Automatically creates Cachet Components and Components group
-* Automatically creates Cachet Incidents and update them with [acknowleddgment messages](https://www.zabbix.com/documentation/3.0/manual/acknowledges)
+* Automatically creates Cachet Incidents and update them with [acknowledgement messages](https://www.zabbix.com/documentation/3.0/manual/acknowledges)
 * Allow to specify root IT service where Zabbix-Cachet will work
 
 # Example
