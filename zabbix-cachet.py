@@ -16,7 +16,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '1.3.0'
+__version__ = '1.3.1'
 
 
 def client_http_error(url, code, message):
@@ -631,8 +631,8 @@ if __name__ == '__main__':
     templates = config.get('templates')
     if templates:
         acknowledgement_tmpl = templates.get('acknowledgement', acknowledgement_tmpl_d)
-        investigating_tmpl = templates.get('investigating')
-        resolving_tmpl = templates.get('resolving')
+        investigating_tmpl = templates.get('investigating', '')
+        resolving_tmpl = templates.get('resolving', '')
     else:
         acknowledgement_tmpl = acknowledgement_tmpl_d
 
