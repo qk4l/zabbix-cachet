@@ -16,11 +16,15 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '1.3.1'
+__version__ = '1.3.2'
 
 
 def client_http_error(url, code, message):
     logging.error('ClientHttpError[%s, %s: %s]' % (url, code, message))
+
+
+def cachetapiexception(message):
+    logging.error(message)
 
 
 def pyzabbix_safe(fail_result=False):
@@ -165,6 +169,10 @@ class Cachet:
         :return: json
         """
         url = self.server + url
+        logging.debug("Sending to {url}: {param}".format(url=url,
+                                                         param=json.dumps(params,
+                                                                          indent=4,
+                                                                          separators=(',', ': '))))
         try:
             r = requests.post(url=url, data=params, headers=self.headers, verify=self.verify)
         except requests.exceptions.RequestException as e:
@@ -172,9 +180,16 @@ class Cachet:
         # r.raise_for_status()
         if r.status_code != 200:
             return client_http_error(url, r.status_code, r.text)
-        data = json.loads(r.text)
-        # TODO: check data
-        return data
+        try:
+            r_json = json.loads(r.text)
+        except ValueError:
+            raise cachetapiexception(
+                "Unable to parse json: %s" % r.text
+            )
+        logging.debug("Response Body: %s", json.dumps(r_json,
+                                                      indent=4,
+                                                      separators=(',', ': ')))
+        return r_json
 
     def _http_get(self, url, params=None):
         """
@@ -186,6 +201,10 @@ class Cachet:
         if params is None:
             params = {}
         url = self.server + url
+        logging.debug("Sending to {url}: {param}".format(url=url,
+                                                         param=json.dumps(params,
+                                                                          indent=4,
+                                                                          separators=(',', ': '))))
         try:
             r = requests.get(url=url, headers=self.headers, params=params, verify=self.verify)
         except requests.exceptions.RequestException as e:
@@ -193,9 +212,16 @@ class Cachet:
         # r.raise_for_status()
         if r.status_code != 200:
             return client_http_error(url, r.status_code, json.loads(r.text)['errors'])
-        data = json.loads(r.text)
-        # TODO: check data
-        return data
+        try:
+            r_json = json.loads(r.text)
+        except ValueError:
+            raise cachetapiexception(
+                "Unable to parse json: %s" % r.text
+            )
+        logging.debug("Response Body: %s", json.dumps(r_json,
+                                                      indent=4,
+                                                      separators=(',', ': ')))
+        return r_json
 
     def _http_put(self, url, params):
         """
@@ -205,16 +231,27 @@ class Cachet:
         :return: json
         """
         url = self.server + url
+        logging.debug("Sending to {url}: {param}".format(url=url,
+                                                         param=json.dumps(params,
+                                                                          indent=4,
+                                                                          separators=(',', ': '))))
         try:
-            r = requests.put(url=url, json=params, headers=self.headers, verify=self.verify)
+            r = requests.put(url=url, json=params, headerhs=self.headers, verify=self.verify)
         except requests.exceptions.RequestException as e:
             raise client_http_error(url, None, e)
         # r.raise_for_status()
         if r.status_code != 200:
             return client_http_error(url, r.status_code, r.text)
-        data = json.loads(r.text)
-        # TODO: check data
-        return data
+        try:
+            r_json = json.loads(r.text)
+        except ValueError:
+            raise cachetapiexception(
+                "Unable to parse json: %s" % r.text
+            )
+        logging.debug("Response Body: %s", json.dumps(r_json,
+                                                      indent=4,
+                                                      separators=(',', ': ')))
+        return r_json
 
     def get_version(self):
         """
