@@ -16,7 +16,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '1.3.2'
+__version__ = '1.3.3'
 
 
 def client_http_error(url, code, message):
@@ -236,7 +236,7 @@ class Cachet:
                                                                           indent=4,
                                                                           separators=(',', ': '))))
         try:
-            r = requests.put(url=url, json=params, headerhs=self.headers, verify=self.verify)
+            r = requests.put(url=url, json=params, headers=self.headers, verify=self.verify)
         except requests.exceptions.RequestException as e:
             raise client_http_error(url, None, e)
         # r.raise_for_status()
@@ -342,10 +342,11 @@ class Cachet:
         params = self.get_component(id)['data']
         params.update(kwargs)
         data = self._http_put(url, params)
-        logging.info('Component {name} (id={id}) was updated. Status - {status}'.format(
-            name=data['data']['name'],
-            id=id,
-            status=data['data']['status_name']))
+        if data:
+            logging.info('Component {name} (id={id}) was updated. Status - {status}'.format(
+                name=data['data']['name'],
+                id=id,
+                status=data['data']['status_name']))
         return data
 
     def get_components_gr(self, name=None):
