@@ -10,6 +10,11 @@ With this script you can maintain Cachet though Zabbix.
 Zabbix-Cachet reads pre-configured [Zabbix IT Services](https://www.zabbix.com/documentation/3.0/manual/it_services) and automatically creates Cachet components.
 After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you IT Services) and manipulate with Cachet incidents and Component statuses based on triggers.
 
+Zabbix-Cachet communicate with Zabbix and Cachet via API interface.
+To make it works you need a zabbix user with sufficient permissions to read triggers,
+items of services that is exported to Cachet and Cachet`s API key.
+
+
 # Features
 * Automatically creates Cachet Components and Components group
 * Automatically creates Cachet Incidents and update them with [acknowledgement messages](https://www.zabbix.com/documentation/3.0/manual/acknowledges)
@@ -27,7 +32,7 @@ After that Zabbix-Cachet periodically checks Zabbix triggers (that linked to you
 ![Cachet Components](https://cloud.githubusercontent.com/assets/8394059/14298058/c5c8b806-fb93-11e5-83f6-ff32aeb5fb4d.png)
 
 # Requirements
-* Cachet 2.2+
+* Cachet 2.2, 2.3
 * Zabbix 2.2, 2.4, 3.0, 3.2
 
 # Installation

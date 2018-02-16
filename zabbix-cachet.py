@@ -23,8 +23,8 @@ def client_http_error(url, code, message):
     logging.error('ClientHttpError[%s, %s: %s]' % (url, code, message))
 
 
-def cachetapiexception(message):
-    logging.error(message)
+class CachetApiException(Exception):
+    logging.error(Exception)
 
 
 def pyzabbix_safe(fail_result=False):
@@ -183,7 +183,7 @@ class Cachet:
         try:
             r_json = json.loads(r.text)
         except ValueError:
-            raise cachetapiexception(
+            raise CachetApiException(
                 "Unable to parse json: %s" % r.text
             )
         logging.debug("Response Body: %s", json.dumps(r_json,
@@ -215,7 +215,7 @@ class Cachet:
         try:
             r_json = json.loads(r.text)
         except ValueError:
-            raise cachetapiexception(
+            raise CachetApiException(
                 "Unable to parse json: %s" % r.text
             )
         logging.debug("Response Body: %s", json.dumps(r_json,
@@ -245,7 +245,7 @@ class Cachet:
         try:
             r_json = json.loads(r.text)
         except ValueError:
-            raise cachetapiexception(
+            raise CachetApiException(
                 "Unable to parse json: %s" % r.text
             )
         logging.debug("Response Body: %s", json.dumps(r_json,
@@ -662,7 +662,6 @@ if __name__ == '__main__':
     ZABBIX = config['zabbix']
     CACHET = config['cachet']
     SETTINGS = config['settings']
-
 
     # Templates for incident displaying
     acknowledgement_tmpl_d = "{message}\n\n###### {ack_time} by {author}\n\n______\n"
