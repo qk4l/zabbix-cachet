@@ -16,15 +16,15 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '1.3.3'
+__version__ = '1.3.4'
 
 
 def client_http_error(url, code, message):
     logging.error('ClientHttpError[%s, %s: %s]' % (url, code, message))
 
 
-class CachetApiException(Exception):
-    logging.error(Exception)
+def cachetapiexception(message):
+    logging.error(message)
 
 
 def pyzabbix_safe(fail_result=False):
@@ -112,7 +112,8 @@ class Zabbix:
         :param root: Name of service that will be root of tree.
                     Actually it will not be present in return tree.
                     It's using just as a start point , string
-        :return: Tree of Zabbix IT Services, List
+        :return: Tree of Zabbix IT Services
+        :rtype: list
         """
         if root:
             root_service = self.zapi.service.get(
@@ -123,12 +124,12 @@ class Zabbix:
             except IndexError:
                 logging.error('Can not find "{}" service in Zabbix'.format(root))
                 sys.exit(1)
-            services = []
+            service_ids = []
             for dependency in root_service['dependencies']:
-                services.append(dependency['serviceid'])
+                service_ids.append(dependency['serviceid'])
             services = self.zapi.service.get(
                 selectDependencies='extend',
-                serviceids=services)
+                serviceids=service_ids)
         else:
             services = self.zapi.service.get(
                 selectDependencies='extend',
@@ -136,15 +137,26 @@ class Zabbix:
         if not services:
             logging.error('Can not find any child service for "{}"'.format(root))
             return []
-        for idx, service in enumerate(services):
-            child_services = []
+        # Create a tree of services
+        known_ids = []
+        # At first proceed services with dependencies as groups
+        service_tree = [i for i in services if i['dependencies']]
+        for idx, service in enumerate(service_tree):
+            child_services_ids = []
             for dependency in service['dependencies']:
-                child_services.append(dependency['serviceid'])
+                child_services_ids.append(dependency['serviceid'])
             child_services = self.zapi.service.get(
                     selectDependencies='extend',
-                    serviceids=child_services)
-            services[idx]['dependencies'] = child_services
-        return services
+                    serviceids=child_services_ids)
+            service_tree[idx]['dependencies'] = child_services
+            # Save ids to filter them later
+            known_ids = known_ids + child_services_ids
+            known_ids.append(service['serviceid'])
+        # At proceed services without dependencies as singers
+        singers_services = [i for i in services if i['serviceid'] not in known_ids]
+        if singers_services:
+            service_tree = service_tree + singers_services
+        return service_tree
 
 
 class Cachet:
@@ -183,7 +195,7 @@ class Cachet:
         try:
             r_json = json.loads(r.text)
         except ValueError:
-            raise CachetApiException(
+            raise cachetapiexception(
                 "Unable to parse json: %s" % r.text
             )
         logging.debug("Response Body: %s", json.dumps(r_json,
@@ -215,7 +227,7 @@ class Cachet:
         try:
             r_json = json.loads(r.text)
         except ValueError:
-            raise CachetApiException(
+            raise cachetapiexception(
                 "Unable to parse json: %s" % r.text
             )
         logging.debug("Response Body: %s", json.dumps(r_json,
@@ -245,7 +257,7 @@ class Cachet:
         try:
             r_json = json.loads(r.text)
         except ValueError:
-            raise CachetApiException(
+            raise cachetapiexception(
                 "Unable to parse json: %s" % r.text
             )
         logging.debug("Response Body: %s", json.dumps(r_json,
@@ -276,14 +288,16 @@ class Cachet:
         """
         Get all registered components or return a component details if name specified
         Please note, it name was not defined method returns only last page of data
-        @param name: string
-        @return: dict of data or list
+        :param name: Name of component to search
+        :type name: str
+        :return: Data =)
+        :rtype: dict or list
         """
         url = 'components'
         data = self._http_get(url)
         total_pages = int(data['meta']['pagination']['total_pages'])
         if name:
-            components = {'data': []}
+            components = []
             for page in range(total_pages, 0, -1):
                 if page == 1:
                     data_page = data
@@ -291,11 +305,11 @@ class Cachet:
                     data_page = self._http_get(url, params={'page': page})
                 for component in data_page['data']:
                     if component['name'] == name:
-                        components['data'].append(component)
-            if len(components['data']) < 1:
+                        components.append(component)
+            if len(components) < 1:
                 return {'id': 0, 'name': 'Does not exists'}
-            elif len(components['data']) == 1:
-                return components['data'][0]
+            else:
+                return components
         return data
 
     def new_components(self, name, **kwargs):
@@ -311,25 +325,22 @@ class Cachet:
         # Check if components with same name already exists in same group
         component = self.get_components(name)
         # There are more that one component with same name already
-        if 'data' in component:
-            for i in component['data']:
+        if isinstance(component, list):
+            for i in component:
                 if i['group_id'] == params['group_id']:
                     return i
-            else:
-                component = {'id': 0}
-        # print(component['name'], component['id'], component['group_id'], params['group_id'])
+        elif isinstance(component, dict):
+            if not component['id'] == 0 and component.get('group_id', None) == params['group_id']:
+                return component
         # Create component if it does not exist or exist in other group
-        if component['id'] == 0 or component['group_id'] != params['group_id']:
-            url = 'components'
-            # params = {'name': name, 'link': link, 'description': description, 'status': status}
-            logging.debug('Creating Cachet component {name}...'.format(name=params['name']))
-            data = self._http_post(url, params)
-            logging.info('Component {name} was created in group id {group_id}.'.format(name=params['name'],
-                                                                                       group_id=data['data'][
-                                                                                           'group_id']))
-            return data['data']
-        else:
-            return component
+        url = 'components'
+        # params = {'name': name, 'link': link, 'description': description, 'status': status}
+        logging.debug('Creating Cachet component {name}...'.format(name=params['name']))
+        data = self._http_post(url, params)
+        logging.info('Component {name} was created in group id {group_id}.'.format(name=params['name'],
+                                                                                   group_id=data['data'][
+                                                                                       'group_id']))
+        return data['data']
 
     def upd_components(self, id, **kwargs):
         """
@@ -378,8 +389,8 @@ class Cachet:
         @return: dict of data
         """
         # Check if component's group already exists
-        componenets_gr_id = self.get_components_gr(name)
-        if componenets_gr_id['id'] == 0:
+        components_gr_id = self.get_components_gr(name)
+        if components_gr_id['id'] == 0:
             url = 'components/groups'
             # TODO: make if possible to configure default collapsed value
             params = {'name': name, 'collapsed': 2}
@@ -389,7 +400,7 @@ class Cachet:
                 logging.info('Component Group {} was created ({})'.format(params['name'], data['data']['id']))
             return data['data']
         else:
-            return componenets_gr_id
+            return components_gr_id
 
     def get_incident(self, component_id):
         """
@@ -562,7 +573,7 @@ def triggers_watcher(service_map):
 
         else:
             # TODO: ServiceID
-            inc_msg = 'TODO: ServiceID'
+            # inc_msg = 'TODO: ServiceID'
             continue
 
     return True
@@ -649,8 +660,14 @@ def read_config(config_f):
     @param config_f: strung
     @return: dict of data
     """
-    # TODO: Add error`s catcher
-    return yaml.load(open(config_f, "r"))
+    try:
+        d = yaml.load(open(config_f, "r"))
+        return d
+    except yaml.scanner.ScannerError as e:
+        logging.error('Failed to parse config file {}: {}'.format(config_f, e))
+    except IOError as e:
+        logging.error('Failed to open config file {}:'.format(config_f, e))
+    return None
 
 
 if __name__ == '__main__':
@@ -659,6 +676,8 @@ if __name__ == '__main__':
     else:
         CONFIG_F = os.path.dirname(os.path.realpath(__file__)) + '/config.yml'
     config = read_config(CONFIG_F)
+    if not config:
+        sys.exit(1)
     ZABBIX = config['zabbix']
     CACHET = config['cachet']
     SETTINGS = config['settings']
