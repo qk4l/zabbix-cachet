@@ -661,12 +661,9 @@ def read_config(config_f):
     @return: dict of data
     """
     try:
-        d = yaml.load(open(config_f, "r"))
-        return d
-    except yaml.scanner.ScannerError as e:
+        return yaml.safe_load(open(config_f, "r"))
+    except (yaml.scanner.ScannerError, IOError) as e:
         logging.error('Failed to parse config file {}: {}'.format(config_f, e))
-    except IOError as e:
-        logging.error('Failed to open config file {}:'.format(config_f, e))
     return None
 
 
