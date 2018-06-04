@@ -16,7 +16,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '1.3.4'
+__version__ = '1.3.5'
 
 
 def client_http_error(url, code, message):
@@ -517,7 +517,13 @@ def triggers_watcher(service_map):
             elif trigger['value'] == '1':
                 zbx_event = zapi.get_event(i['triggerid'])
                 inc_name = trigger['description']
-                if zbx_event['acknowledged'] == '1':
+                if not zbx_event:
+                    logging.warn('Failed to get zabbix event for trigger {}'.format(i['triggerid']))
+                    # Mock zbx_event for further usage
+                    zbx_event = {'acknowledged': '0',
+                                 'clock': '0'
+                                 }
+                if zbx_event.get('acknowledged', '0') == '1':
                     inc_status = 2
                     for msg in zbx_event['acknowledges']:
                         # TODO: Add timezone?
