@@ -521,7 +521,6 @@ def triggers_watcher(service_map):
                     logging.warn('Failed to get zabbix event for trigger {}'.format(i['triggerid']))
                     # Mock zbx_event for further usage
                     zbx_event = {'acknowledged': '0',
-                                 'clock': '0'
                                  }
                 if zbx_event.get('acknowledged', '0') == '1':
                     inc_status = 2
@@ -546,10 +545,15 @@ def triggers_watcher(service_map):
                     comp_status = 2
 
                 if not inc_msg and investigating_tmpl:
+                    if zbx_event:
+                        zbx_event_clock = int(zbx_event.get('clock'))
+                        zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock).strftime('%b %d, %H:%M')
+                    else:
+                        zbx_event_time = ''
                     inc_msg = investigating_tmpl.format(
                         group=i['group_name'],
                         component=i['component_name'],
-                        time=datetime.datetime.fromtimestamp(int(zbx_event['clock'])).strftime('%b %d, %H:%M'),
+                        time=zbx_event_time,
                         trigger_description=trigger['comments'],
                         trigger_name=trigger['description'],
                     )
