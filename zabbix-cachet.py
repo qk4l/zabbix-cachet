@@ -321,11 +321,12 @@ class Cachet:
         """
         # Get values for new component
         params = {'name': name, 'link': '', 'description': '', 'status': '1', 'group_id': 0}
-        # Strip params to avoid empty (' ') values #24
-        for k, v in kwargs.items():
-            if isinstance(v, (str, unicode)):
-                v = v.strip()
-            params[k] = v
+        params.update(kwargs)
+        # Do not post empty params to Cachet
+        for i in ('link', 'description'):
+            # Strip params to avoid empty (' ') values #24
+            if str(params[i]).strip() == '':
+                params.pop(i)
         # Check if components with same name already exists in same group
         component = self.get_components(name)
         # There are more that one component with same name already
