@@ -16,7 +16,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '1.3.5'
+__version__ = '1.3.6'
 
 
 def client_http_error(url, code, message):
@@ -321,7 +321,11 @@ class Cachet:
         """
         # Get values for new component
         params = {'name': name, 'link': '', 'description': '', 'status': '1', 'group_id': 0}
-        params.update(kwargs)
+        # Strip params to avoid empty (' ') values #24
+        for k, v in kwargs.items():
+            if isinstance(v, (str, unicode)):
+                v = v.strip()
+            params[k] = v
         # Check if components with same name already exists in same group
         component = self.get_components(name)
         # There are more that one component with same name already
@@ -672,7 +676,7 @@ def read_config(config_f):
     """
     try:
         return yaml.safe_load(open(config_f, "r"))
-    except (yaml.scanner.ScannerError, IOError) as e:
+    except (yaml.error.MarkedYAMLError, IOError) as e:
         logging.error('Failed to parse config file {}: {}'.format(config_f, e))
     return None
 

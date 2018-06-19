@@ -34,7 +34,10 @@ templates:
   #   message: acknowledgement msg
   #   ack_time: acknowledgement time
   #   author: First name + Surname of Zabbix user
-  acknowledgement: "{message}\n\n###### {ack_time} by {author}\n\n______\n"
+  acknowledgement: |
+    {message}
+    ###### {ack_time} by {author}
+    ______
 
   # Template for new incinents (investigating)
   # Supported fields:
@@ -43,9 +46,14 @@ templates:
   #   time: Zabbix event time
   #   trigger_name: Zabbix trigger name
   #   trigger_description: Zabbix trigger description (comment)
-  investigating: "{group} | {component} check **failed** - {time}\n\n```{trigger_name}```"
+  investigating: |
+    {group} | {component} check **failed** - {time}
+
+    ```{trigger_name}```
 
   # Template for resolved incinents (resolving)
   # Supported fields:
   #   time: Incindent resolved time in Cachet
-  resolving: "__Resolved__ - {time}\n\n______\n"
+  resolving: |
+    __Resolved__ - {time}
+    ______

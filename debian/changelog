@@ -1,3 +1,9 @@
+zabbix-cachet (1.3.6) unstable; urgency=medium
+
+  * Upstream update
+
+ -- Artem Aleksandrov <qk4l@aleksandrov>  Tue, 19 Jun 2018 15:23:39 +0300
+
 zabbix-cachet (1.3.4) unstable; urgency=medium
 
   * Fixed bug with duplicate components in some cases
