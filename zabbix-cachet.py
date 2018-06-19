@@ -556,20 +556,20 @@ def triggers_watcher(service_map):
                     else:
                         zbx_event_time = ''
                     inc_msg = investigating_tmpl.format(
-                        group=i['group_name'],
-                        component=i['component_name'],
+                        group=i.get('group_name', ''),
+                        component=i.get('component_name', ''),
                         time=zbx_event_time,
-                        trigger_description=trigger['comments'],
-                        trigger_name=trigger['description'],
+                        trigger_description=trigger.get('comments', ''),
+                        trigger_name=trigger.get('description', ''),
                     )
 
-                if not inc_msg and trigger['comments']:
-                    inc_msg = trigger['comments']
+                if not inc_msg and trigger.get('comments'):
+                    inc_msg = trigger.get('comments')
                 elif not inc_msg:
-                    inc_msg = trigger['description']
+                    inc_msg = trigger.get('description')
 
                 if 'group_name' in i:
-                    inc_name = i['group_name'] + ' | ' + inc_name
+                    inc_name = i.get('group_name') + ' | ' + inc_name
 
                 last_inc = cachet.get_incident(i['component_id'])
                 # Incident not registered
