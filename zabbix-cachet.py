@@ -594,20 +594,24 @@ def triggers_watcher(service_map):
     return True
 
 
-def triggers_watcher_worker(service_map, interval, e):
+def triggers_watcher_worker(service_map, interval, event):
     """
     Worker for triggers_watcher. Run it continuously with specific interval
     @param service_map: list of tuples
     @param interval: interval in seconds
-    @param e: treading.Event object
+    @param event: treading.Event object
     @return:
     """
     logging.info('start trigger watcher')
-    while not e.is_set():
+    while not event.is_set():
         logging.debug('check Zabbix triggers')
         # Do not run if Zabbix is not available
         if zapi.get_version():
-            triggers_watcher(service_map)
+            try:
+                triggers_watcher(service_map)
+            except Exception as e:
+                logging.error('triggers_watcher() raised an Exception. Something gone wrong')
+                logging.error(e, exc_info=True)
         else:
             logging.error('Zabbix is not available. Skip checking...')
         time.sleep(interval)
