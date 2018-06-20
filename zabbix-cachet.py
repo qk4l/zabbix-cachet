@@ -16,7 +16,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '1.3.6'
+__version__ = '1.4.0'
 
 
 def client_http_error(url, code, message):
@@ -70,15 +70,17 @@ class Zabbix:
         return version
 
     @pyzabbix_safe()
-    def get_service(self, ids):
+    def get_service(self, serviceid):
         """
         Get service information
-        :param ids: string/array
+        :param serviceid: string/array
         :return: dict of data
         """
-        return self.zapi.service.get(
+        service = self.zapi.service.get(
             selectDependencies='extend',
-            serviceids=ids)
+            selectAlarms='extend',
+            serviceids=serviceid)
+        return service[0]
 
     @pyzabbix_safe({})
     def get_trigger(self, triggerid):
@@ -473,6 +475,31 @@ class Cachet:
         return data
 
 
+def cachet_component_to_operational(s):
+    """
+    Set component status to operational
+    :param s: service from service_map
+    :return:
+    """
+    # Check if incident already registered
+    # And component not operational mode
+    last_inc = cachet.get_incident(s['component_id'])
+    if str(last_inc['id']) != '0':
+        if resolving_tmpl:
+            inc_msg = resolving_tmpl.format(time=datetime.datetime.now().strftime('%b %d, %H:%M'),
+                                            ) + cachet.get_incident(s['component_id'])['message']
+        else:
+            inc_msg = cachet.get_incident(s['component_id'])['message']
+        cachet.upd_incident(last_inc['id'],
+                            status=4,
+                            component_id=s['component_id'],
+                            component_status=1,
+                            message=inc_msg)
+    # Incident does not exist. Just change component status
+    else:
+        cachet.upd_components(s['component_id'], status=1)
+
+
 def triggers_watcher(service_map):
     """
     Check zabbix triggers and update Cachet components
@@ -504,7 +531,6 @@ def triggers_watcher(service_map):
             if 'value' not in trigger:
                 logging.error('Cannot get value for trigger {}'.format(i['triggerid']))
                 continue
-            # Check if incident already registered
             # Trigger non Active
             if str(trigger['value']) == '0':
                 component_status = cachet.get_component(i['component_id'])['data']['status']
@@ -512,22 +538,7 @@ def triggers_watcher(service_map):
                 if str(component_status) == '1':
                     continue
                 else:
-                    # And component not operational mode
-                    last_inc = cachet.get_incident(i['component_id'])
-                    if str(last_inc['id']) != '0':
-                        if resolving_tmpl:
-                            inc_msg = resolving_tmpl.format(time=datetime.datetime.now().strftime('%b %d, %H:%M'),
-                                                            ) + cachet.get_incident(i['component_id'])['message']
-                        else:
-                            inc_msg = cachet.get_incident(i['component_id'])['message']
-                        cachet.upd_incident(last_inc['id'],
-                                            status=4,
-                                            component_id=i['component_id'],
-                                            component_status=1,
-                                            message=inc_msg)
-                    # Incident does not exist. Just change component status
-                    else:
-                        cachet.upd_components(i['component_id'], status=1)
+                    cachet_component_to_operational(i)
                     continue
             # Trigger in Active state
             elif trigger['value'] == '1':
@@ -586,33 +597,50 @@ def triggers_watcher(service_map):
             # Service status depends on child services
             s = zapi.get_service(i['serviceid'])
             logging.debug('Getting status for service {}'.format(i['serviceid']))
-            logging.error(s)
-            try:
-                s = s[0]
-                # Service in OK state
-                logging.error(s['status'])
-                if s['status'] == '0':
-                    continue
-                else:
-                    for child in s['dependencies']:
-                        s_child = zapi.get_service(child['serviceid'])[0]
-                        if not 'triggerid' in s_child:
-                            continue
-                        trigger = zapi.get_trigger(s_child['triggerid'])
-                        # TODO: write
-                        # if s_child['triggerid']
-                    comp_status = 3
-                    inc_status = 1
-                    inc_name = 'There is a problem with {}'.format(i['component_name'])
-                    inc_msg = '...'
-            except:
+            if 'status' not in s:
+                logging.error('Cannot get value for service {}'.format(i['serviceid']))
                 continue
-
-
+            # Service in OK state
+            if str(s['status']) == '0':
+                cachet_component_to_operational(i)
+                continue
+            else:
+                for child in s.get('dependencies', ()):
+                    s_child = zapi.get_service(child['serviceid'])
+                    if str(s_child['status']) == '0':
+                        continue
+                    else:
+                        # If the IT service is in problem state, status is equal either to:
+                        # - the priority of the linked trigger if it is set to 2, "Warning"
+                        #         or higher (priorities 0, "Not classified" and 1, "Information" are ignored);
+                        # - the highest status of a child IT service in problem state.
+                        if int(s_child['status']) >= 4:
+                            comp_status = 4
+                        elif int(s_child['status']) == 3:
+                            comp_status = 3
+                        else:
+                            comp_status = 2
+                        inc_status = 1
+                        inc_name = 'There is a problem with {}'.format(i['component_name'])
+                        if investigating_tmpl:
+                            try:
+                                zbx_event_clock = int(s_child['alarms'][-1]['clock'])
+                                zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock).strftime(
+                                    '%b %d, %H:%M')
+                            except (IndexError, KeyError):
+                                zbx_event_time = ''
+                            inc_msg += investigating_tmpl.format(
+                                group=i.get('group_name', ''),
+                                component=i.get('component_name', ''),
+                                time=zbx_event_time,
+                                trigger_description=s_child.get('name', ''),
+                                trigger_name=s_child.get('name', ''),
+                            )
+                        else:
+                            inc_msg += s_child['name']
         else:
             logging.error('Something wrong with {}'.format(i['component_name']))
             continue
-        logging.debug(inc_name)
 
         last_inc = cachet.get_incident(i['component_id'])
         # Incident not registered
