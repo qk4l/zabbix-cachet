@@ -5,6 +5,8 @@ Requires=network.target
 
 [Service]
 Type=simple
+Restart=on-failure
+RestartSec=5
 ExecStart=/usr/bin/zabbix-cachet
 Environment=CONFIG_FILE=/etc/zabbix-cachet.yml
 
