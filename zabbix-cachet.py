@@ -11,12 +11,14 @@ import time
 import threading
 import logging
 import yaml
+import pytz
 from pyzabbix import ZabbixAPI, ZabbixAPIException
 from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
 __version__ = '1.3.6'
+
 
 
 def client_http_error(url, code, message):
@@ -505,7 +507,7 @@ def triggers_watcher(service_map):
                     last_inc = cachet.get_incident(i['component_id'])
                     if str(last_inc['id']) != '0':
                         if resolving_tmpl:
-                            inc_msg = resolving_tmpl.format(time=datetime.datetime.now().strftime('%b %d, %H:%M'),
+                            inc_msg = resolving_tmpl.format(time=datetime.datetime.now(tz=tz).strftime('%b %d, %H:%M'),
                                                             ) + cachet.get_incident(i['component_id'])['message']
                         else:
                             inc_msg = cachet.get_incident(i['component_id'])['message']
@@ -532,7 +534,7 @@ def triggers_watcher(service_map):
                     for msg in zbx_event['acknowledges']:
                         # TODO: Add timezone?
                         #       Move format to config file
-                        ack_time = datetime.datetime.fromtimestamp(int(msg['clock'])).strftime('%b %d, %H:%M')
+                        ack_time = datetime.datetime.fromtimestamp(int(msg['clock']), tz=tz).strftime('%b %d, %H:%M')
                         ack_msg = acknowledgement_tmpl.format(
                             message=msg['message'],
                             ack_time=ack_time,
@@ -552,7 +554,7 @@ def triggers_watcher(service_map):
                 if not inc_msg and investigating_tmpl:
                     if zbx_event:
                         zbx_event_clock = int(zbx_event.get('clock'))
-                        zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock).strftime('%b %d, %H:%M')
+                        zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock, tz=tz).strftime('%b %d, %H:%M')
                     else:
                         zbx_event_time = ''
                     inc_msg = investigating_tmpl.format(
@@ -687,6 +689,7 @@ def read_config(config_f):
 
 
 if __name__ == '__main__':
+    global tz
     if os.getenv('CONFIG_FILE') is not None:
         CONFIG_F = os.environ['CONFIG_FILE']
     else:
@@ -697,6 +700,11 @@ if __name__ == '__main__':
     ZABBIX = config['zabbix']
     CACHET = config['cachet']
     SETTINGS = config['settings']
+
+    if SETTINGS['time_zone'] == 'None':
+        tz = None
+    else:
+        tz = pytz.timezone(SETTINGS['time_zone'])
 
     # Templates for incident displaying
     acknowledgement_tmpl_d = "{message}\n\n###### {ack_time} by {author}\n\n______\n"
