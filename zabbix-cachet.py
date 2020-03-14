@@ -17,7 +17,7 @@ from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '1.3.6'
+__version__ = '1.3.7'
 
 
 
@@ -701,10 +701,13 @@ if __name__ == '__main__':
     CACHET = config['cachet']
     SETTINGS = config['settings']
 
-    if SETTINGS['time_zone'] == 'None':
+    try:
+        if SETTINGS['time_zone'] == 'None' or SETTINGS['time_zone'] == '':
+            tz = None
+        else:
+            tz = pytz.timezone(SETTINGS['time_zone'])
+    except KeyError:
         tz = None
-    else:
-        tz = pytz.timezone(SETTINGS['time_zone'])
 
     # Templates for incident displaying
     acknowledgement_tmpl_d = "{message}\n\n###### {ack_time} by {author}\n\n______\n"
