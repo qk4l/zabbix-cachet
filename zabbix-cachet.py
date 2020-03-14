@@ -689,7 +689,7 @@ def read_config(config_f):
 
 
 if __name__ == '__main__':
-    global tz
+
     if os.getenv('CONFIG_FILE') is not None:
         CONFIG_F = os.environ['CONFIG_FILE']
     else:
