@@ -29,7 +29,7 @@ settings:
   # Time Zone Info - Used in templates to show time of zabbix events
   # Leave None if you want to use the system timezone zabbix-cachet is running on.
   # Formats accepted: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones - Use Column TZ database name
-  time_zone: None
+  time_zone: null
 
 # Templates for incident displaying
 # Fill free to use Markdown

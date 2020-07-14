@@ -20,7 +20,6 @@ __license__ = """The MIT License (MIT)"""
 __version__ = '1.3.7'
 
 
-
 def client_http_error(url, code, message):
     logging.error('ClientHttpError[%s, %s: %s]' % (url, code, message))
 
@@ -525,7 +524,7 @@ def triggers_watcher(service_map):
                 zbx_event = zapi.get_event(i['triggerid'])
                 inc_name = trigger['description']
                 if not zbx_event:
-                    logging.warn('Failed to get zabbix event for trigger {}'.format(i['triggerid']))
+                    logging.warning('Failed to get zabbix event for trigger {}'.format(i['triggerid']))
                     # Mock zbx_event for further usage
                     zbx_event = {'acknowledged': '0',
                                  }
@@ -534,11 +533,12 @@ def triggers_watcher(service_map):
                     for msg in zbx_event['acknowledges']:
                         # TODO: Add timezone?
                         #       Move format to config file
+                        author = msg.get('name', '') + ' ' + msg.get('surname', '')
                         ack_time = datetime.datetime.fromtimestamp(int(msg['clock']), tz=tz).strftime('%b %d, %H:%M')
                         ack_msg = acknowledgement_tmpl.format(
                             message=msg['message'],
                             ack_time=ack_time,
-                            author=msg['name'] + ' ' + msg['surname']
+                            author=author
                         )
                         if ack_msg not in inc_msg:
                             inc_msg = ack_msg + inc_msg
@@ -577,7 +577,8 @@ def triggers_watcher(service_map):
                 # Incident not registered
                 if last_inc['status'] in ('-1', '4'):
                     # TODO: added incident_date
-                    # incident_date = datetime.datetime.fromtimestamp(int(trigger['lastchange'])).strftime('%d/%m/%Y %H:%M')
+                    # incident_date = datetime.datetime.fromtimestamp(
+                    # int(trigger['lastchange'])).strftime('%d/%m/%Y %H:%M')
                     cachet.new_incidents(name=inc_name, message=inc_msg, status=inc_status,
                                          component_id=i['component_id'], component_status=comp_status)
 
@@ -701,12 +702,9 @@ if __name__ == '__main__':
     CACHET = config['cachet']
     SETTINGS = config['settings']
 
-    try:
-        if SETTINGS['time_zone'] == 'None' or SETTINGS['time_zone'] == '':
-            tz = None
-        else:
-            tz = pytz.timezone(SETTINGS['time_zone'])
-    except KeyError:
+    if SETTINGS.get('time_zone'):
+        tz = pytz.timezone(SETTINGS['time_zone'])
+    else:
         tz = None
 
     # Templates for incident displaying

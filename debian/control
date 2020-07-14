@@ -7,6 +7,6 @@ Standards-Version: 3.7.2
 
 Package: zabbix-cachet
 Architecture: all
-Depends: python3, python3-yaml, python3-requests, python3-pip
+Depends: python3, python3-yaml, python3-requests, python3-pip, python3-tz
 Description: Python script which provide synchronisation between Zabbix IT Services and Cachet
 
