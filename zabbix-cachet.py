@@ -12,6 +12,7 @@ import threading
 import logging
 import yaml
 import pytz
+import traceback
 from pyzabbix import ZabbixAPI, ZabbixAPIException
 from operator import itemgetter
 
@@ -29,7 +30,6 @@ def cachetapiexception(message):
 
 
 def pyzabbix_safe(fail_result=False):
-
     def wrap(func):
         def wrapperd_f(*args, **kwargs):
             try:
@@ -37,7 +37,9 @@ def pyzabbix_safe(fail_result=False):
             except (requests.ConnectionError, ZabbixAPIException) as e:
                 logging.error('Zabbix Error: {}'.format(e))
                 return fail_result
+
         return wrapperd_f
+
     return wrap
 
 
@@ -118,7 +120,11 @@ class Zabbix:
         """
         if root:
             root_service = self.zapi.service.get(
-                selectDependencies='extend',
+                # selectDependencies='extend',
+                output='extend',
+                selectChildren='extend',
+                selectProblemTags='extend',
+                # selectParents='extend',
                 filter={'name': root})
             try:
                 root_service = root_service[0]
@@ -126,14 +132,20 @@ class Zabbix:
                 logging.error('Can not find "{}" service in Zabbix'.format(root))
                 sys.exit(1)
             service_ids = []
-            for dependency in root_service['dependencies']:
+            for dependency in root_service['children']:
                 service_ids.append(dependency['serviceid'])
             services = self.zapi.service.get(
-                selectDependencies='extend',
+                # selectDependencies='extend',
+                selectChildren='extend',
+                selectProblemTags='extend',
+                # selectParents='extend',
                 serviceids=service_ids)
         else:
             services = self.zapi.service.get(
-                selectDependencies='extend',
+                # selectDependencies='extend',
+                selectChildren='extend',
+                selectParents='extend',
+                selectProblemTags='extend',
                 output='extend')
         if not services:
             logging.error('Can not find any child service for "{}"'.format(root))
@@ -141,15 +153,18 @@ class Zabbix:
         # Create a tree of services
         known_ids = []
         # At first proceed services with dependencies as groups
-        service_tree = [i for i in services if i['dependencies']]
+        service_tree = [i for i in services if i['children']]
         for idx, service in enumerate(service_tree):
             child_services_ids = []
-            for dependency in service['dependencies']:
+            for dependency in service['children']:
                 child_services_ids.append(dependency['serviceid'])
             child_services = self.zapi.service.get(
-                    selectDependencies='extend',
-                    serviceids=child_services_ids)
-            service_tree[idx]['dependencies'] = child_services
+                # selectDependencies='extend',
+                selectChildren='extend',
+                # selectParents='extend',
+                selectProblemTags='extend',
+                serviceids=child_services_ids)
+            service_tree[idx]['children'] = child_services
             # Save ids to filter them later
             known_ids = known_ids + child_services_ids
             known_ids.append(service['serviceid'])
@@ -488,6 +503,8 @@ def triggers_watcher(service_map):
         # inc_name = ''
         inc_msg = ''
 
+        logging.debug('Object {}'.format(i))
+
         if 'triggerid' in i:
             trigger = zapi.get_trigger(i['triggerid'])
             # Check if Zabbix return trigger
@@ -554,7 +571,8 @@ def triggers_watcher(service_map):
                 if not inc_msg and investigating_tmpl:
                     if zbx_event:
                         zbx_event_clock = int(zbx_event.get('clock'))
-                        zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock, tz=tz).strftime('%b %d, %H:%M')
+                        zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock, tz=tz).strftime(
+                            '%b %d, %H:%M')
                     else:
                         zbx_event_time = ''
                     inc_msg = investigating_tmpl.format(
@@ -605,7 +623,7 @@ def triggers_watcher_worker(service_map, interval, event):
     @param event: treading.Event object
     @return:
     """
-    logging.info('start trigger watcher')
+    logging.info('Start trigger watcher....')
     while not event.is_set():
         logging.debug('check Zabbix triggers')
         # Do not run if Zabbix is not available
@@ -633,11 +651,23 @@ def init_cachet(services):
     for zbx_service in services:
         # Check if zbx_service has childes
         zxb2cachet_i = {}
-        if zbx_service['dependencies']:
+        if zbx_service['children']:
             group = cachet.new_components_gr(zbx_service['name'])
-            for dependency in zbx_service['dependencies']:
+            for dependency in zbx_service['children']:
                 # Component without trigger
-                if int(dependency['triggerid']) != 0:
+                logging.debug('dependency: %s', dependency)
+                if dependency.get('problem_tags') is not None and len(dependency.get('problem_tags')) > 0:
+                    for t in dependency.get('problem_tags'):
+                        if t.get('value'):
+                            trigger_id = str(t.get('value')).split(':')
+                            trigger = zapi.get_trigger(trigger_id[0])
+                            if not trigger:
+                                logging.error('Failed to get trigger {} from Zabbix'.format(dependency['triggerid']))
+                                continue
+                            component = cachet.new_components(dependency['name'], group_id=group['id'],
+                                                              link=trigger['url'], description=trigger['description'])
+                            zxb2cachet_i = {'triggerid': trigger_id}
+                elif dependency.get('triggerid'):
                     trigger = zapi.get_trigger(dependency['triggerid'])
                     if not trigger:
                         logging.error('Failed to get trigger {} from Zabbix'.format(dependency['triggerid']))
@@ -721,11 +751,9 @@ if __name__ == '__main__':
     # Set Logging
     log_level = logging.getLevelName(SETTINGS['log_level'])
     log_level_requests = logging.getLevelName(SETTINGS['log_level_requests'])
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s %(levelname)s: (%(threadName)s) %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S %Z'
-    )
+    logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
+                        datefmt='%Y-%m-%d:%H:%M:%S',
+                        level=log_level)
     logging.getLogger("requests").setLevel(log_level_requests)
     logging.info('Zabbix Cachet v.{} started'.format(__version__))
     inc_update_t = threading.Thread()
@@ -771,7 +799,9 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         event.set()
         logging.info('Shutdown requested. See you.')
-    except Exception as error:
-        logging.error(error)
+    except Exception as e:
+        logging.error(e)
+        logging.error("@@@@ Thread Exception: {}, {}, {}".format(e, e.with_traceback, traceback.print_exc()))
+
         exit_status = 1
     sys.exit(exit_status)
