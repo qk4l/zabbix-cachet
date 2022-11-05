@@ -1,5 +1,5 @@
 # Zabbix-Cachet
-This is python script which provide synchronisation between [Zabbix IT Services](https://www.zabbix.com/documentation/3.0/manual/it_services)
+This is python script which provides synchronisation between [Zabbix IT Services](https://www.zabbix.com/documentation/3.0/manual/it_services)
 and [Cachet](https://cachethq.io/)
 
 # Description
@@ -34,7 +34,7 @@ items of services that is exported to Cachet and Cachet`s API key.
 # Requirements
 * Cachet 2.2, 2.3
 * Zabbix 2.2, 2.4, 3.0, 3.2, 4.0
-* python 2.7+
+* python 3.6+
 
 # Installation
 

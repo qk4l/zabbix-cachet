@@ -6,158 +6,35 @@ import sys
 import os
 import datetime
 import json
+from typing import List, Dict, Union, Any
+
 import requests
 import time
 import threading
 import logging
 import yaml
 import pytz
-from pyzabbix import ZabbixAPI, ZabbixAPIException
 from operator import itemgetter
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '1.3.7'
+__version__ = '2.0.0'
+
+from zabbix_cachet.zabbix import Zabbix, ZabbixService
 
 
 def client_http_error(url, code, message):
     logging.error('ClientHttpError[%s, %s: %s]' % (url, code, message))
 
 
-def cachetapiexception(message):
-    logging.error(message)
-
-
-def pyzabbix_safe(fail_result=False):
-
-    def wrap(func):
-        def wrapperd_f(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except (requests.ConnectionError, ZabbixAPIException) as e:
-                logging.error('Zabbix Error: {}'.format(e))
-                return fail_result
-        return wrapperd_f
-    return wrap
-
-
-class Zabbix:
-    def __init__(self, server, user, password, verify=True):
-        """
-        Init zabbix class for further needs
-        :param user: string
-        :param password: string
-        :return: pyzabbix object
-        """
-        self.server = server
-        self.user = user
-        self.password = password
-        # Enable HTTP auth
-        s = requests.Session()
-        s.auth = (user, password)
-
-        self.zapi = ZabbixAPI(server, s)
-        self.zapi.session.verify = verify
-        self.zapi.login(user, password)
-        self.version = self.get_version()
-
-    @pyzabbix_safe()
-    def get_version(self):
-        """
-        Get Zabbix API version
-        :return: str
-        """
-        version = self.zapi.apiinfo.version()
-        return version
-
-    @pyzabbix_safe({})
-    def get_trigger(self, triggerid):
-        """
-        Get trigger information
-        @param triggerid: string
-        @return: dict of data
-        """
-        trigger = self.zapi.trigger.get(
-            expandComment='true',
-            expandDescription='true',
-            triggerids=triggerid)
-        return trigger[0]
-
-    @pyzabbix_safe({})
-    def get_event(self, triggerid):
-        """
-        Get event information based on triggerid
-        @param triggerid: string
-        @return: dict of data
-        """
-        zbx_event = self.zapi.event.get(
-            select_acknowledges='extend',
-            expandDescription='true',
-            object=0,
-            value=1,
-            objectids=triggerid)
-        if len(zbx_event) >= 1:
-            return zbx_event[-1]
-        return zbx_event
-
-    @pyzabbix_safe([])
-    def get_itservices(self, root=None):
-        """
-        Return tree of Zabbix IT Services
-        root (hidden)
-           - service1 (Cachet componentgroup)
-             - child_service1 (Cachet component)
-             - child_service2 (Cachet component)
-           - service2 (Cachet componentgroup)
-             - child_service3 (Cachet component)
-        :param root: Name of service that will be root of tree.
-                    Actually it will not be present in return tree.
-                    It's using just as a start point , string
-        :return: Tree of Zabbix IT Services
-        :rtype: list
-        """
-        if root:
-            root_service = self.zapi.service.get(
-                selectDependencies='extend',
-                filter={'name': root})
-            try:
-                root_service = root_service[0]
-            except IndexError:
-                logging.error('Can not find "{}" service in Zabbix'.format(root))
-                sys.exit(1)
-            service_ids = []
-            for dependency in root_service['dependencies']:
-                service_ids.append(dependency['serviceid'])
-            services = self.zapi.service.get(
-                selectDependencies='extend',
-                serviceids=service_ids)
-        else:
-            services = self.zapi.service.get(
-                selectDependencies='extend',
-                output='extend')
-        if not services:
-            logging.error('Can not find any child service for "{}"'.format(root))
-            return []
-        # Create a tree of services
-        known_ids = []
-        # At first proceed services with dependencies as groups
-        service_tree = [i for i in services if i['dependencies']]
-        for idx, service in enumerate(service_tree):
-            child_services_ids = []
-            for dependency in service['dependencies']:
-                child_services_ids.append(dependency['serviceid'])
-            child_services = self.zapi.service.get(
-                    selectDependencies='extend',
-                    serviceids=child_services_ids)
-            service_tree[idx]['dependencies'] = child_services
-            # Save ids to filter them later
-            known_ids = known_ids + child_services_ids
-            known_ids.append(service['serviceid'])
-        # At proceed services without dependencies as singers
-        singers_services = [i for i in services if i['serviceid'] not in known_ids]
-        if singers_services:
-            service_tree = service_tree + singers_services
-        return service_tree
+class CachetApiException(Exception):
+    def __init__(self, message=None, errors=None):
+        if errors:
+            message = ', '.join(errors)
+        self.errors = errors
+        if message:
+            logging.error(repr(message).rstrip())
+        super(Exception, self).__init__(message)
 
 
 class Cachet:
@@ -196,9 +73,7 @@ class Cachet:
         try:
             r_json = json.loads(r.text)
         except ValueError:
-            raise cachetapiexception(
-                "Unable to parse json: %s" % r.text
-            )
+            raise CachetApiException(f"Unable to parse json: {r.text}")
         logging.debug("Response Body: %s", json.dumps(r_json,
                                                       indent=4,
                                                       separators=(',', ': ')))
@@ -223,12 +98,15 @@ class Cachet:
         except requests.exceptions.RequestException as e:
             raise client_http_error(url, None, e)
         # r.raise_for_status()
-        if r.status_code != 200:
+        if r.status_code == 502:
+            client_http_error(url, 502, "Bad Gateway")
+            raise CachetApiException(f"Failed to get Cachet version. Probably it is not available")
+        elif r.status_code != 200:
             return client_http_error(url, r.status_code, json.loads(r.text)['errors'])
         try:
             r_json = json.loads(r.text)
         except ValueError:
-            raise cachetapiexception(
+            raise CachetApiException(
                 "Unable to parse json: %s" % r.text
             )
         logging.debug("Response Body: %s", json.dumps(r_json,
@@ -258,7 +136,7 @@ class Cachet:
         try:
             r_json = json.loads(r.text)
         except ValueError:
-            raise cachetapiexception(
+            raise CachetApiException(
                 "Unable to parse json: %s" % r.text
             )
         logging.debug("Response Body: %s", json.dumps(r_json,
@@ -388,7 +266,7 @@ class Cachet:
             return {'id': 0, 'name': 'Does not exists'}
         return data
 
-    def new_components_gr(self, name):
+    def new_components_gr(self, name: str):
         """
         Create new components group
         @param name: string
@@ -607,7 +485,7 @@ def triggers_watcher_worker(service_map, interval, event):
     """
     logging.info('start trigger watcher')
     while not event.is_set():
-        logging.debug('check Zabbix triggers')
+        logging.info('Check status of Zabbix triggers')
         # Do not run if Zabbix is not available
         if zapi.get_version():
             try:
@@ -621,11 +499,11 @@ def triggers_watcher_worker(service_map, interval, event):
     logging.info('end trigger watcher')
 
 
-def init_cachet(services):
+def init_cachet(services: List[ZabbixService]) -> List[Dict[str, Union[Union[str, int], Any]]]:
     """
     Init Cachet by syncing Zabbix service to it
     Also func create mapping batten Cachet components and Zabbix IT services
-    @param services: list
+    @param services: list of ZabbixService
     @return: list of tuples
     """
     # Zabbix Triggers to Cachet components id map
@@ -633,22 +511,22 @@ def init_cachet(services):
     for zbx_service in services:
         # Check if zbx_service has childes
         zxb2cachet_i = {}
-        if zbx_service['dependencies']:
-            group = cachet.new_components_gr(zbx_service['name'])
-            for dependency in zbx_service['dependencies']:
+        if zbx_service.children:
+            group = cachet.new_components_gr(zbx_service.name)
+            for dependency in zbx_service.children:
                 # Component without trigger
-                if int(dependency['triggerid']) != 0:
-                    trigger = zapi.get_trigger(dependency['triggerid'])
+                if int(dependency.triggerid) != 0:
+                    trigger = zapi.get_trigger(dependency.triggerid)
                     if not trigger:
-                        logging.error('Failed to get trigger {} from Zabbix'.format(dependency['triggerid']))
+                        logging.error('Failed to get trigger {} from Zabbix'.format(dependency.triggerid))
                         continue
-                    component = cachet.new_components(dependency['name'], group_id=group['id'],
+                    component = cachet.new_components(dependency.name, group_id=group['id'],
                                                       link=trigger['url'], description=trigger['description'])
                     # Create a map of Zabbix Trigger <> Cachet IDs
-                    zxb2cachet_i = {'triggerid': dependency['triggerid']}
+                    zxb2cachet_i = {'triggerid': dependency.triggerid}
                 else:
-                    component = cachet.new_components(dependency['name'], group_id=group['id'])
-                    zxb2cachet_i = {'serviceid': dependency['serviceid']}
+                    component = cachet.new_components(dependency.name, group_id=group['id'])
+                    zxb2cachet_i = {'serviceid': dependency.serviceid}
                 zxb2cachet_i.update({'group_id': group['id'],
                                      'group_name': group['name'],
                                      'component_id': component['id'],
@@ -657,19 +535,19 @@ def init_cachet(services):
                 data.append(zxb2cachet_i)
         else:
             # Component with trigger
-            if zbx_service['triggerid']:
-                if int(zbx_service['triggerid']) == 0:
+            if zbx_service.triggerid:
+                if int(zbx_service.triggerid) == 0:
                     logging.error('Zabbix Service with service id = {} does '
-                                  'not have trigger or child service'.format(zbx_service['serviceid']))
+                                  'not have trigger or child service'.format(zbx_service.serviceid))
                     continue
-                trigger = zapi.get_trigger(zbx_service['triggerid'])
+                trigger = zapi.get_trigger(zbx_service.triggerid)
                 if not trigger:
-                    logging.error('Failed to get trigger {} from Zabbix'.format(zbx_service['triggerid']))
+                    logging.error('Failed to get trigger {} from Zabbix'.format(zbx_service.triggerid))
                     continue
-                component = cachet.new_components(zbx_service['name'], link=trigger['url'],
+                component = cachet.new_components(zbx_service.name, link=trigger['url'],
                                                   description=trigger['description'])
                 # Create a map of Zabbix Trigger <> Cachet IDs
-                zxb2cachet_i = {'triggerid': zbx_service['triggerid'],
+                zxb2cachet_i = {'triggerid': zbx_service.triggerid,
                                 'component_id': component['id'],
                                 'component_name': component['name']}
             data.append(zxb2cachet_i)
@@ -685,17 +563,20 @@ def read_config(config_f):
     try:
         return yaml.safe_load(open(config_f, "r"))
     except (yaml.error.MarkedYAMLError, IOError) as e:
-        logging.error('Failed to parse config file {}: {}'.format(config_f, e))
+        logging.error(f"Failed to parse config file {config_f}: {e}")
     return None
 
 
 if __name__ == '__main__':
 
     if os.getenv('CONFIG_FILE') is not None:
-        CONFIG_F = os.environ['CONFIG_FILE']
+        config_file = os.environ['CONFIG_FILE']
     else:
-        CONFIG_F = os.path.dirname(os.path.realpath(__file__)) + '/config.yml'
-    config = read_config(CONFIG_F)
+        config_file = os.path.dirname(os.path.realpath(__file__)) + '/config.yml'
+    if not os.path.isfile(config_file):
+        logging.error(f"Config file {config_file} is absent. Set CONFIG_FILE to change path or create it there.")
+        sys.exit(1)
+    config = read_config(config_file)
     if not config:
         sys.exit(1)
     ZABBIX = config['zabbix']
@@ -708,14 +589,14 @@ if __name__ == '__main__':
         tz = None
 
     # Templates for incident displaying
-    acknowledgement_tmpl_d = "{message}\n\n###### {ack_time} by {author}\n\n______\n"
+    acknowledgement_tmpl_default = "{message}\n\n###### {ack_time} by {author}\n\n______\n"
     templates = config.get('templates')
     if templates:
-        acknowledgement_tmpl = templates.get('acknowledgement', acknowledgement_tmpl_d)
+        acknowledgement_tmpl = templates.get('acknowledgement', acknowledgement_tmpl_default)
         investigating_tmpl = templates.get('investigating', '')
         resolving_tmpl = templates.get('resolving', '')
     else:
-        acknowledgement_tmpl = acknowledgement_tmpl_d
+        acknowledgement_tmpl = acknowledgement_tmpl_default
 
     exit_status = 0
     # Set Logging
@@ -737,14 +618,15 @@ if __name__ == '__main__':
         zbxtr2cachet = ''
         while True:
             logging.debug('Getting list of Zabbix IT Services ...')
-            itservices = (zapi.get_itservices(SETTINGS['root_service']))
-            logging.debug('Zabbix IT Services: {}'.format(itservices))
+            it_services = zapi.get_itservices(SETTINGS['root_service'])
+            logging.debug('Zabbix IT Services: {}'.format(it_services))
             # Create Cachet components and components groups
             logging.debug('Syncing Zabbix with Cachet...')
-            zbxtr2cachet_new = init_cachet(itservices)
+            # TODO: refactor market
+            zbxtr2cachet_new = init_cachet(it_services)
             if not zbxtr2cachet_new:
                 logging.error('Sorry, can not create Zabbix <> Cachet mapping for you. Please check above errors')
-                # Exit if it's a initial run
+                # Exit if it's an initial run
                 if not zbxtr2cachet:
                     sys.exit(1)
                 else:
@@ -772,6 +654,6 @@ if __name__ == '__main__':
         event.set()
         logging.info('Shutdown requested. See you.')
     except Exception as error:
-        logging.error(error)
+        logging.exception(error)
         exit_status = 1
     sys.exit(exit_status)
