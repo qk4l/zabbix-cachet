@@ -22,29 +22,15 @@ def pyzabbix_safe(fail_result=False):
     return wrap
 
 
-SERVICES = [
-    {'serviceid': '3', 'name': 'Second Service', 'status': '3', 'algorithm': '1', 'triggerid': '0', 'showsla': '0',
-     'goodsla': '99.9', 'sortorder': '0',
-     'dependencies': [
-         {'serviceid': '4', 'name': '1', 'status': '3', 'algorithm': '1', 'triggerid': '16199', 'showsla': '0',
-          'goodsla': '99.9', 'sortorder': '0', 'dependencies': []},
-         {'serviceid': '5', 'name': '2', 'status': '0', 'algorithm': '1', 'triggerid': '16046', 'showsla': '0',
-          'goodsla': '99.9', 'sortorder': '0', 'dependencies': []}]},
-    {'serviceid': '2', 'name': 'First Service', 'status': '3', 'algorithm': '1', 'triggerid': '16199', 'showsla': '0',
-     'goodsla': '99.9', 'sortorder': '0', 'dependencies': []},
-    {'serviceid': '6', 'name': 'Third Service', 'status': '0', 'algorithm': '1', 'triggerid': '0', 'showsla': '0',
-     'goodsla': '99.9', 'sortorder': '0', 'dependencies': []}
-]
-
-
 @dataclass
 class ZabbixService:
     name: str
     serviceid: str
     status: str
-    algorithm: str
     triggerid: str = None
     children: List['ZabbixService'] = field(default_factory=list)
+    problem_tags: List[dict] = field(default_factory=list)
+    description: str = ''
     # TODO: Change to parents in future if will needed
     is_parents: bool = False
 
@@ -53,11 +39,9 @@ class ZabbixService:
 
 
 class Zabbix:
-    def __init__(self, server, user, password, verify=True):
+    def __init__(self, server: str, user: str, password: str, verify: bool = True):
         """
         Init zabbix class for further needs
-        :param user: string
-        :param password: string
         :return: pyzabbix object
         """
         self.server = server
@@ -93,17 +77,24 @@ class Zabbix:
         return version
 
     @pyzabbix_safe({})
-    def get_trigger(self, triggerid):
+    def get_trigger(self, triggerid: str = '', tags: List = None) -> dict:
         """
-        Get trigger information
-        @param triggerid: string
-        @return: dict of data
+        Get trigger information by trigger_id or tags
+        https://www.zabbix.com/documentation/6.0/en/manual/api/reference/trigger/get
         """
-        trigger = self.zapi.trigger.get(
-            expandComment='true',
-            expandDescription='true',
-            triggerids=triggerid)
-        return trigger[0]
+        if triggerid:
+            trigger = self.zapi.trigger.get(
+                expandComment='true',
+                expandDescription='true',
+                triggerids=triggerid)
+            return trigger[0]
+        else:
+            trigger = self.zapi.trigger.get(
+                expandComment='true',
+                expandDescription='true',
+                tags=tags,
+                only_true=True)
+            return trigger
 
     @pyzabbix_safe({})
     def get_event(self, triggerid):
@@ -129,15 +120,19 @@ class Zabbix:
         https://www.zabbix.com/documentation/6.0/en/manual/appendix/services_upgrade
         :return:
         """
+        query = {
+            'output': 'extend',
+            'selectChildren': 'extend',
+            'selectProblemTags': 'extend',
+        }
         if name:
-            services = self.zapi.service.get(selectChildren='extend', filter={'name': name})
+            services = self.zapi.service.get(**query, filter={'name': name})
         elif serviceid:
-            services = self.zapi.service.get(selectChildren='extend', serviceids=serviceid)
+            services = self.zapi.service.get(**query, serviceids=serviceid)
         elif parentids:
-            services = self.zapi.service.get(selectChildren='extend', parentids=parentids)
+            services = self.zapi.service.get(**query, parentids=parentids)
         else:
-            services = self.zapi.service.get(selectChildren='extend')
-
+            services = self.zapi.service.get(**query)
         return services
 
     def get_service_legacy(self, name: str = '', serviceid: Union[List, str] = None,
@@ -171,9 +166,10 @@ class Zabbix:
         logging.debug(f"Init ZabbixITService for {data.get('name')} ")
         zabbix_it_service = ZabbixService(name=data.get('name'),
                                           serviceid=data.get('serviceid'),
-                                          # TODO: Change for zbx 6
+                                          # Does not support by Zbx 6.0+
                                           triggerid=data.get('triggerid', None),
-                                          algorithm=data.get('algorithm'),
+                                          problem_tags=data.get('problem_tags', []),
+                                          description=data.get('description', ''),
                                           status=data.get('status'))
         if 'parents' in data:
             zabbix_it_service.is_parents = True
@@ -206,6 +202,7 @@ class Zabbix:
                 sys.exit(1)
             monitor_services = self._init_zabbix_it_service(root_service[0]).children
         else:
+            # TODO: Add support after 6.0
             if self.version_major < 6:
                 services = self.get_service()
                 for i in services:

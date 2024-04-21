@@ -247,7 +247,7 @@ class Cachet:
     def get_components_gr(self, name=None):
         """
         Get all registered components group or return a component group details if name specified
-        Please note, it name was not defined method returns only last page of data
+        Please note, this name was not defined method returns only last page of data
         @param name: string
         @return: dict of data
         """
@@ -367,7 +367,7 @@ def triggers_watcher(service_map):
         inc_msg = ''
 
         if 'triggerid' in i:
-            trigger = zapi.get_trigger(i['triggerid'])
+            trigger = zapi.get_trigger(triggerid=i['triggerid'])
             # Check if Zabbix return trigger
             if 'value' not in trigger:
                 logging.error('Cannot get value for trigger {}'.format(i['triggerid']))
@@ -432,7 +432,8 @@ def triggers_watcher(service_map):
                 if not inc_msg and investigating_tmpl:
                     if zbx_event:
                         zbx_event_clock = int(zbx_event.get('clock'))
-                        zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock, tz=tz).strftime('%b %d, %H:%M')
+                        zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock, tz=tz).strftime(
+                            '%b %d, %H:%M')
                     else:
                         zbx_event_time = ''
                     inc_msg = investigating_tmpl.format(
@@ -515,8 +516,8 @@ def init_cachet(services: List[ZabbixService]) -> List[Dict[str, Union[Union[str
             group = cachet.new_components_gr(zbx_service.name)
             for dependency in zbx_service.children:
                 # Component without trigger
-                if int(dependency.triggerid) != 0:
-                    trigger = zapi.get_trigger(dependency.triggerid)
+                if dependency.triggerid:
+                    trigger = zapi.get_trigger(triggerid=dependency.triggerid)
                     if not trigger:
                         logging.error('Failed to get trigger {} from Zabbix'.format(dependency.triggerid))
                         continue
@@ -536,11 +537,11 @@ def init_cachet(services: List[ZabbixService]) -> List[Dict[str, Union[Union[str
         else:
             # Component with trigger
             if zbx_service.triggerid:
-                if int(zbx_service.triggerid) == 0:
-                    logging.error('Zabbix Service with service id = {} does '
-                                  'not have trigger or child service'.format(zbx_service.serviceid))
+                if zbx_service.triggerid and not zbx_service.problem_tags:
+                    logging.warning(f'Zabbix Service with service id = {zbx_service.serviceid} does not have'
+                                    f' trigger, child service or problem_tags. Monitoring will not work for it')
                     continue
-                trigger = zapi.get_trigger(zbx_service.triggerid)
+                trigger = zapi.get_trigger(triggerid=zbx_service.triggerid)
                 if not trigger:
                     logging.error('Failed to get trigger {} from Zabbix'.format(zbx_service.triggerid))
                     continue
