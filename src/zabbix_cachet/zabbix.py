@@ -6,6 +6,8 @@ import requests
 import logging
 from pyzabbix import ZabbixAPI, ZabbixAPIException
 
+from zabbix_cachet.excepltions import InvalidConfig
+
 
 def pyzabbix_safe(fail_result=False):
 
@@ -41,7 +43,7 @@ class ZabbixService:
     serviceid: str
     status: str
     algorithm: str
-    triggerid: str
+    triggerid: str = None
     children: List['ZabbixService'] = field(default_factory=list)
     # TODO: Change to parents in future if will needed
     is_parents: bool = False
@@ -71,8 +73,9 @@ class Zabbix:
         self.version = self.get_version()
         # Zabbix made significant changes in 6.0 https://support.zabbix.com/browse/ZBXNEXT-6674
         try:
-            if int(self.version.split('.')[0]) >= 6:
-                self.get_service = self.get_service_modern
+            self.version_major = int(self.version.split('.')[0])
+            if self.version_major >= 6:
+                self.get_service = self.get_service
             else:
                 self.get_service = self.get_service_legacy
         except (TypeError, IndexError) as err:
@@ -119,10 +122,11 @@ class Zabbix:
             return zbx_event[-1]
         return zbx_event
 
-    def get_service_modern(self, name: str = '', serviceid: Union[List, str] = None,
-                           parentids: str = '') -> List[Dict]:
+    def get_service(self, name: str = '', serviceid: Union[List, str] = None,
+                    parentids: str = '') -> List[Dict]:
         """
-        For zabbix 6+
+        For zabbix 6.0 +
+        https://www.zabbix.com/documentation/6.0/en/manual/appendix/services_upgrade
         :return:
         """
         if name:
@@ -130,9 +134,9 @@ class Zabbix:
         elif serviceid:
             services = self.zapi.service.get(selectChildren='extend', serviceids=serviceid)
         elif parentids:
-            services = self.zapi.service.get(selectDependencies='extend', parentids=parentids)
+            services = self.zapi.service.get(selectChildren='extend', parentids=parentids)
         else:
-            services = self.zapi.service.get(selectDependencies='extend')
+            services = self.zapi.service.get(selectChildren='extend')
 
         return services
 
@@ -167,7 +171,8 @@ class Zabbix:
         logging.debug(f"Init ZabbixITService for {data.get('name')} ")
         zabbix_it_service = ZabbixService(name=data.get('name'),
                                           serviceid=data.get('serviceid'),
-                                          triggerid=data.get('triggerid'),
+                                          # TODO: Change for zbx 6
+                                          triggerid=data.get('triggerid', None),
                                           algorithm=data.get('algorithm'),
                                           status=data.get('status'))
         if 'parents' in data:
@@ -201,10 +206,14 @@ class Zabbix:
                 sys.exit(1)
             monitor_services = self._init_zabbix_it_service(root_service[0]).children
         else:
-            services = self.get_service()
-            for i in services:
-                # Do not proceed non-root services directly
-                if len(i['parents']) == 0:
-                    monitor_services.append(self._init_zabbix_it_service(i))
+            if self.version_major < 6:
+                services = self.get_service()
+                for i in services:
+                    # Do not proceed non-root services directly
+                    if len(i['parents']) == 0:
+                        monitor_services.append(self._init_zabbix_it_service(i))
+            else:
+                raise InvalidConfig(f"settings.root_service should be defined in you config yaml file because "
+                                    f"you use Zabbix version {self.version}")
         return monitor_services
 

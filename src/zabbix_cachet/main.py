@@ -16,7 +16,7 @@ import yaml
 import pytz
 from operator import itemgetter
 
-__author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
+__author__ = 'Artem Aleksandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
 __version__ = '2.0.0'
 

@@ -1,4 +1,7 @@
-PyYAML==5.1
-pyzabbix==0.7.4
-requests==2.20.0
-pytz==2019.3
+PyYAML>=5.4
+pyzabbix==1.2.1
+requests>=2.21.0
+pytz==2024.1
+# Dev only
+# pytest==8.1.1
+# pytest-env==1.1.3
