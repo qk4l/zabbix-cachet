@@ -15,6 +15,8 @@ import pytz
 import traceback
 from pyzabbix import ZabbixAPI, ZabbixAPIException
 from operator import itemgetter
+import urllib3
+
 
 __author__ = 'Artem Alexandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
@@ -58,7 +60,7 @@ class Zabbix:
         s = requests.Session()
         s.auth = (user, password)
 
-        self.zapi = ZabbixAPI(server, s)
+        self.zapi = ZabbixAPI(server)
         self.zapi.session.verify = verify
         self.zapi.login(user, password)
         self.version = self.get_version()
@@ -119,6 +121,7 @@ class Zabbix:
         :rtype: list
         """
         if root:
+            logging.debug(f"Obtained root service: 1")
             root_service = self.zapi.service.get(
                 # selectDependencies='extend',
                 output='extend',
@@ -126,8 +129,10 @@ class Zabbix:
                 selectProblemTags='extend',
                 # selectParents='extend',
                 filter={'name': root})
+            logging.debug(f"Obtained root service: 2")
             try:
                 root_service = root_service[0]
+                logging.debug(f"Obtained root service: {root_service}")
             except IndexError:
                 logging.error('Can not find "{}" service in Zabbix'.format(root))
                 sys.exit(1)
@@ -687,7 +692,7 @@ def init_cachet(services):
                 data.append(zxb2cachet_i)
         else:
             # Component with trigger
-            if zbx_service['triggerid']:
+            if 'triggerid' in zbx_service:
                 if int(zbx_service['triggerid']) == 0:
                     logging.error('Zabbix Service with service id = {} does '
                                   'not have trigger or child service'.format(zbx_service['serviceid']))
@@ -702,7 +707,10 @@ def init_cachet(services):
                 zxb2cachet_i = {'triggerid': zbx_service['triggerid'],
                                 'component_id': component['id'],
                                 'component_name': component['name']}
-            data.append(zxb2cachet_i)
+                data.append(zxb2cachet_i)
+            else:
+                logging.error("Service {} does not have associated triggerid, adjust Zabbix -> SLA Configuration".format(zbx_service['name']))
+
     return data
 
 
@@ -755,10 +763,13 @@ if __name__ == '__main__':
                         datefmt='%Y-%m-%d:%H:%M:%S',
                         level=log_level)
     logging.getLogger("requests").setLevel(log_level_requests)
-    logging.info('Zabbix Cachet v.{} started'.format(__version__))
+    logging.info('Zabbix Cachet v.{} started (config: {})'.format(__version__, CONFIG_F))
     inc_update_t = threading.Thread()
     event = threading.Event()
     try:
+        if ZABBIX['https-verify'] is False:
+            urllib3.disable_warnings()
+
         zapi = Zabbix(ZABBIX['server'], ZABBIX['user'], ZABBIX['pass'], ZABBIX['https-verify'])
         cachet = Cachet(CACHET['server'], CACHET['token'], CACHET['https-verify'])
         logging.info('Zabbix ver: {}. Cachet ver: {}'.format(zapi.version, cachet.version))
