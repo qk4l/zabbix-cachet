@@ -422,7 +422,7 @@ class Cachet:
             params = {'name': name, 'collapsed': 2}
             logging.debug('Creating Component Group {}...'.format(params['name']))
             data = self._http_post(url, params)
-            if 'data' in data:
+            if data is not None and 'data' in data:
                 logging.info('Component Group {} was created ({})'.format(params['name'], data['data']['id']))
             return data['data']
         else:
