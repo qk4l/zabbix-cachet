@@ -1,11 +1,11 @@
-FROM  python:3.4-alpine
+FROM  python:3.11-alpine
 MAINTAINER Artem Alexandrov <qk4l@tem4uk.ru>
-ENV REFRESHED_AT 2017013001
+ENV REFRESHED_AT 2024050501
 ENV CONFIG_FILE /config.yml
-COPY requirements.txt /zabbix-cachet/requirements.txt
-COPY zabbix-cachet.py /zabbix-cachet/zabbix-cachet.py
-RUN pip3 install -r /zabbix-cachet/requirements.txt
-WORKDIR /opt/
+WORKDIR /opt/zabbix-cachet
+COPY requirements.txt .
+COPY . ./
+RUN pip3 install -e .
 
-CMD ["python", "/zabbix-cachet/zabbix-cachet.py"]
+CMD ["python", "/opt/zabbix-cachet/main.py"]
 

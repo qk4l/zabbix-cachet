@@ -17,6 +17,8 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Topic :: System :: Monitoring",
@@ -24,9 +26,8 @@ setup(
     python_requires=">=3.6",
     install_requires=[
         "requests>=2.21.0",
-        # TODO: Check versions!
-        "PyYAML==6.0",
-        "pyzabbix==1.2.1",
+        "PyYAML>=5.4",
+        "pyzabbix==1.3.1",
         "pytz",
     ],
 )
