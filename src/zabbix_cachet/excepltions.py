@@ -15,3 +15,9 @@ class ZabbixCachetException(Exception):
 
 class InvalidConfig(ZabbixCachetException):
     pass
+
+class CachetApiException(ZabbixCachetException):
+    pass
+
+class ZabbixNotAvailable(ZabbixCachetException):
+    pass

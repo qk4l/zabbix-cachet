@@ -4,9 +4,11 @@ from typing import List, Dict, Union
 
 import requests
 import logging
+
+import urllib3
 from pyzabbix import ZabbixAPI, ZabbixAPIException
 
-from zabbix_cachet.excepltions import InvalidConfig
+from zabbix_cachet.excepltions import InvalidConfig, ZabbixNotAvailable, ZabbixCachetException
 
 
 def pyzabbix_safe(fail_result=False):
@@ -26,7 +28,8 @@ def pyzabbix_safe(fail_result=False):
 class ZabbixService:
     name: str
     serviceid: str
-    status: str
+    status: int
+    zabbix_version_major: int
     triggerid: str = None
     children: List['ZabbixService'] = field(default_factory=list)
     problem_tags: List[dict] = field(default_factory=list)
@@ -35,7 +38,21 @@ class ZabbixService:
     is_parents: bool = False
 
     def __repr__(self):
-        return f"ZabbixITService with {self.name} in status {self.status}"
+        if self.is_status_ok:
+            status_str = 'OK'
+        else:
+            status_str = 'Failed'
+        return f"ZabbixITService {self.name} in status {status_str} ({self.status})"
+
+    @property
+    def is_status_ok(self) -> bool:
+        if self.zabbix_version_major < 6:
+            if self.status == 0:
+                return True
+        else:
+            if self.status == -1:
+                return True
+        return False
 
 
 class Zabbix:
@@ -47,12 +64,15 @@ class Zabbix:
         self.server = server
         self.user = user
         self.password = password
-        # Enable HTTP auth
-        s = requests.Session()
-        s.auth = (user, password)
+        # Enable basic HTTP auth, some installations can use it
+        # s = requests.Session()
+        # s.auth = (user, password)
+        # self.zapi = ZabbixAPI(server, s)
 
-        self.zapi = ZabbixAPI(server, s)
+        self.zapi = ZabbixAPI(server)
         self.zapi.session.verify = verify
+        if not verify:
+            urllib3.disable_warnings()
         self.zapi.login(user, password)
         self.version = self.get_version()
         # Zabbix made significant changes in 6.0 https://support.zabbix.com/browse/ZBXNEXT-6674
@@ -77,7 +97,7 @@ class Zabbix:
         return version
 
     @pyzabbix_safe({})
-    def get_trigger(self, triggerid: str = '', tags: List = None) -> dict:
+    def get_trigger(self, triggerid: str = '', tags: List = None) -> List[dict]:
         """
         Get trigger information by trigger_id or tags
         https://www.zabbix.com/documentation/6.0/en/manual/api/reference/trigger/get
@@ -87,7 +107,7 @@ class Zabbix:
                 expandComment='true',
                 expandDescription='true',
                 triggerids=triggerid)
-            return trigger[0]
+            return trigger
         else:
             trigger = self.zapi.trigger.get(
                 expandComment='true',
@@ -113,6 +133,7 @@ class Zabbix:
             return zbx_event[-1]
         return zbx_event
 
+    @pyzabbix_safe([])
     def get_service(self, name: str = '', serviceid: Union[List, str] = None,
                     parentids: str = '') -> List[Dict]:
         """
@@ -135,6 +156,7 @@ class Zabbix:
             services = self.zapi.service.get(**query)
         return services
 
+    @pyzabbix_safe([])
     def get_service_legacy(self, name: str = '', serviceid: Union[List, str] = None,
                            parentids: str = '') -> List[Dict]:
         """
@@ -166,11 +188,14 @@ class Zabbix:
         logging.debug(f"Init ZabbixITService for {data.get('name')} ")
         zabbix_it_service = ZabbixService(name=data.get('name'),
                                           serviceid=data.get('serviceid'),
+                                          zabbix_version_major=self.version_major,
+                                          description=data.get('description', ''),
+                                          status=int(data.get('status')),
+                                          # Does not support by Zbx < 6.0
+                                          problem_tags=data.get('problem_tags', []),
                                           # Does not support by Zbx 6.0+
                                           triggerid=data.get('triggerid', None),
-                                          problem_tags=data.get('problem_tags', []),
-                                          description=data.get('description', ''),
-                                          status=data.get('status'))
+                                          )
         if 'parents' in data:
             zabbix_it_service.is_parents = True
         if 'children' in data:
@@ -196,10 +221,11 @@ class Zabbix:
         """
         monitor_services = []
         if root_name:
+            if not self.get_version():
+                raise ZabbixNotAvailable('Zabbix is not available...')
             root_service = self.get_service(root_name)
             if not len(root_service) == 1:
-                logging.error(f'Can not find uniq "{root_name}" service in Zabbix')
-                sys.exit(1)
+                raise ZabbixCachetException(f'Can not find uniq "{root_name}" service in Zabbix')
             monitor_services = self._init_zabbix_it_service(root_service[0]).children
         else:
             # TODO: Add support after 6.0
@@ -214,3 +240,12 @@ class Zabbix:
                                     f"you use Zabbix version {self.version}")
         return monitor_services
 
+
+    def get_zabbix_service(self, serviceid: str) -> ZabbixService:
+        """
+        Method which primary should be used in zabbix-cachet code
+        :param serviceid:
+        :return:
+        """
+        service = self.get_service(serviceid=serviceid)
+        return self._init_zabbix_it_service(service[0])
