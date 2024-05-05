@@ -332,13 +332,12 @@ if __name__ == '__main__':
         datefmt='%Y-%m-%d %H:%M:%S %Z'
     )
     logging.getLogger("requests").setLevel(log_level_requests)
-    logging.info('Zabbix Cachet v.{} started'.format(__version__))
+    logging.info(f'Zabbix Cachet v.{__version__} started (config: {config_file})')
     inc_update_t = threading.Thread()
     event = threading.Event()
     try:
         zapi = Zabbix(ZABBIX['server'], ZABBIX['user'], ZABBIX['pass'], ZABBIX['https-verify'])
         cachet = Cachet(CACHET['server'], CACHET['token'], CACHET['https-verify'])
-        logging.info(f'Zabbix Cachet v.{__version__} started (config: {config_file})')
         logging.info('Zabbix ver: {}. Cachet ver: {}'.format(zapi.version, cachet.version))
         zbxtr2cachet = ''
         while True:
