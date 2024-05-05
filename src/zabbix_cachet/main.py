@@ -38,6 +38,7 @@ class ZabbixCachetMap:
     def __str__(self):
         return f"{self.cachet_group_name}/{self.cachet_component_name} - {self.zbx_serviceid}"
 
+
 def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
     """
     Check zabbix triggers and update Cachet components
@@ -52,7 +53,7 @@ def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
         0 - Scheduled - This status is used for a scheduled status.
         1 - Investigating - You have reports of a problem, and you're currently looking into them.
         2 - Identified - You've found the issue, and you're working on a fix.
-        3 - Watching - You've since deployed a fix, and you're currently watching the situation.
+        3 - Watching - You've since deployed a fix, and you're currently watching the situation. # Does not use for now
         4 - Fixed
     @return: boolean
     """
@@ -136,6 +137,8 @@ def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
                         inc_msg = ack_msg + inc_msg
             else:
                 inc_status = 1
+            # TODO: Rewrite it to get current severity from service.
+            # Zabbix 6.0+ fine works with it and allow to change via Dashboard
             if int(trigger['priority']) >= 4:
                 comp_status = 4
             elif int(trigger['priority']) == 3:
@@ -169,9 +172,6 @@ def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
             last_inc = cachet.get_incident(i.cachet_component_id)
             # Incident not registered
             if last_inc['status'] in ('-1', '4'):
-                # TODO: added incident_date
-                # incident_date = datetime.datetime.fromtimestamp(
-                # int(trigger['lastchange'])).strftime('%d/%m/%Y %H:%M')
                 cachet.new_incidents(name=inc_name, message=inc_msg, status=inc_status,
                                      component_id=i.cachet_component_id, component_status=comp_status)
 

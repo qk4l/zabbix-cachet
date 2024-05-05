@@ -307,6 +307,5 @@ class Cachet:
         url = 'incidents/' + str(id)
         params = kwargs
         data = self._http_put(url, params)
-        logging.info('Incident ID {id} was updated. Status - {status}.'.format(id=id,
-                                                                               status=data['data']['human_status']))
+        logging.info(f"Incident ID {id} was updated. Status - {data['data']['human_status']}")
         return data
