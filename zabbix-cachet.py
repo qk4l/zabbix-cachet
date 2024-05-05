@@ -484,7 +484,7 @@ def cachet_component_to_operational(s):
     # Check if incident already registered
     # And component not operational mode
     last_inc = cachet.get_incident(s['component_id'])
-    if str(last_inc['id']) != '0':
+    if (str(last_inc['id']) != '0') and (str(last_inc['status']) != '4'):
         if resolving_tmpl:
             inc_msg = resolving_tmpl.format(time=datetime.datetime.now().strftime('%b %d, %H:%M'),
                                             ) + cachet.get_incident(s['component_id'])['message']
