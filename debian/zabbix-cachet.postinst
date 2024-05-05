@@ -1,4 +1,5 @@
 #!/bin/bash
+# TODO: Add pytz and updated versions
 pip3 install pyzabbix==0.7.4
 chmod 640 /etc/zabbix-cachet.yml
 systemctl status zabbix-cachet.service

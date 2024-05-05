@@ -16,6 +16,7 @@ settings:
   root_service: ''
 
   # How often check Zabbix for new incidents
+  # Set it bigger than Cachet cache timeout to avoid duplicate incidents reports
   update_inc_interval: 120  # in seconds
   # How often check Zabbix for new IT Services
   update_comp_interval: 3600  # in seconds
