@@ -1,7 +1,9 @@
-PyYAML>=5.4
-pyzabbix==1.3.1
-requests>=2.21.0
-pytz==2024.1
-# Dev only
-#pytest==8.2.0
-#pytest-env==1.1.3
+certifi==2024.2.2 ; python_full_version > "3.8.0"
+charset-normalizer==3.3.2 ; python_full_version > "3.8.0"
+idna==3.7 ; python_full_version > "3.8.0"
+packaging==24.0 ; python_full_version > "3.8.0"
+pytz==2024.1 ; python_full_version > "3.8.0"
+pyyaml==6.0.1 ; python_full_version > "3.8.0"
+pyzabbix==1.3.1 ; python_full_version > "3.8.0"
+requests==2.31.0 ; python_full_version > "3.8.0"
+urllib3==2.2.1 ; python_full_version > "3.8.0"
