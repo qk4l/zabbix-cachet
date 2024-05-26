@@ -55,7 +55,7 @@ items of services that is exported to Cachet and Cachet`s API key.
 3. Define `CONFIG_FILE` environment variable which point to your `config.yml` or change current work directory to folder with config 
 4. Launch `zabbix-cachet`
 
-## Apt
+## Apt (outdated release)
 1. Add official Zabbix-Cachet [PPA](https://launchpad.net/~reg-tem4uk/+archive/ubuntu/zabbix-cachet):
     ```bash
     add-apt-repository ppa:reg-tem4uk/zabbix-cachet
