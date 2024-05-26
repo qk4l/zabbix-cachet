@@ -1,9 +1,10 @@
 import sys
+import logging
+
 from dataclasses import dataclass, field
 from typing import List, Dict, Union
 
 import requests
-import logging
 
 import urllib3
 from pyzabbix import ZabbixAPI, ZabbixAPIException
@@ -107,14 +108,13 @@ class Zabbix:
                 expandComment='true',
                 expandDescription='true',
                 triggerids=triggerid)
-            return trigger
         else:
             trigger = self.zapi.trigger.get(
                 expandComment='true',
                 expandDescription='true',
                 tags=tags,
                 only_true=True)
-            return trigger
+        return trigger
 
     @pyzabbix_safe({})
     def get_event(self, triggerid):

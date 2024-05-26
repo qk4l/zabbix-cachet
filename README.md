@@ -46,11 +46,14 @@ items of services that is exported to Cachet and Cachet`s API key.
     ```
 3. Drink a cup of tea (optional)
 
-## Git
-1. Clone this repository
+## Python package
+1. Install python package via pip
+   ```bash
+   pip install zabbix-cachet
+   ```
 2. Rename `config-example.yml` to `config.yml` and fill a file with your settings.
-3. Install python libs from `requirements.txt`
-4. Launch `zabbix-cachet.py`
+3. Define `CONFIG_FILE` environment variable which point to your `config.yml` or change current work directory to folder with config 
+4. Launch `zabbix-cachet`
 
 ## Apt
 1. Add official Zabbix-Cachet [PPA](https://launchpad.net/~reg-tem4uk/+archive/ubuntu/zabbix-cachet):
