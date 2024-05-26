@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "zabbix-cachet"
-version = "2.1.0"
+version = "2.1.1"
 description = "Python daemon which provides synchronisation between Zabbix IT Services and Cachet"
 authors = ["Artem Alexandrov <qk4l@tem4uk.ru>"]
 license = "MIT License"
