@@ -4,6 +4,7 @@ This script populated Cachet of Zabbix IT Services
 """
 import sys
 import os
+import pathlib
 import datetime
 from dataclasses import dataclass
 from typing import List, Union
@@ -36,10 +37,10 @@ class Config:
     def __init__(self):
         if not hasattr(self, 'initialized'):
             if os.getenv('CONFIG_FILE') is not None:
-                self.config_file = os.environ['CONFIG_FILE']
+                self.config_file = pathlib.Path(os.environ['CONFIG_FILE'])
             else:
-                self.config_file = os.path.dirname(os.path.realpath(__file__)) + '/config.yml'
-            if not os.path.isfile(self.config_file):
+                self.config_file = pathlib.Path.cwd() / 'config.yml'
+            if not self.config_file.is_file():
                 logging.error(
                     f"Config file {self.config_file} is absent. Set CONFIG_FILE to change path or create it there.")
                 sys.exit(1)
