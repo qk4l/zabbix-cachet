@@ -11,6 +11,8 @@ from typing import List, Union
 import time
 import threading
 import logging
+
+import requests
 import yaml
 import pytz
 
@@ -20,7 +22,7 @@ from zabbix_cachet.zabbix import Zabbix, ZabbixService
 
 __author__ = 'Artem Aleksandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '2.0.0'
+__version__ = '2.1.0'
 
 
 class Config:
@@ -403,7 +405,9 @@ def main():
                 inc_update_t.daemon = True
                 inc_update_t.start()
             time.sleep(config.app_settings['update_comp_interval'])
-
+    except requests.exceptions.ConnectionError as err:
+        logging.error(f"Failed to connect: {err}")
+        exit_status = 1
     except KeyboardInterrupt:
         event.set()
         logging.info('Shutdown requested. See you.')
