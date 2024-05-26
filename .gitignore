@@ -6,3 +6,5 @@ config.yml
 /.pytest_cache/
 /src/zabbix_cachet.egg-info/
 /dist/
+/database.sqlite
+/config_zbx_old.yml

@@ -23,6 +23,50 @@ __license__ = """The MIT License (MIT)"""
 __version__ = '2.0.0'
 
 
+class Config:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(Config, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
+
+    def __init__(self):
+        if not hasattr(self, 'initialized'):
+            if os.getenv('CONFIG_FILE') is not None:
+                self.config_file = os.environ['CONFIG_FILE']
+            else:
+                self.config_file = os.path.dirname(os.path.realpath(__file__)) + '/config.yml'
+            if not os.path.isfile(self.config_file):
+                logging.error(
+                    f"Config file {self.config_file} is absent. Set CONFIG_FILE to change path or create it there.")
+                sys.exit(1)
+            config = read_config(self.config_file)
+            if not config:
+                sys.exit(1)
+            self.zabbix_config = config['zabbix']
+            self.cachet_config = config['cachet']
+            self.app_settings = config['settings']
+
+            if self.app_settings.get('time_zone'):
+                self.tz = pytz.timezone(self.app_settings['time_zone'])
+            else:
+                self.tz = None
+
+            incident_templates_defaults = {
+                'acknowledgement': "{message}\n\n###### {ack_time} by {author}\n\n______\n",
+                'investigation': '',
+                'resolving': '',
+            }
+
+            self.templates = config.get('templates')
+            for template_name, default_value in incident_templates_defaults.items():
+                if self.templates.get(template_name, None) is None:
+                    self.templates[template_name] = default_value
+
+            self.initialized = True
+
+
 @dataclass
 class ZabbixCachetMap:
     cachet_component_id: int
@@ -39,7 +83,7 @@ class ZabbixCachetMap:
         return f"{self.cachet_group_name}/{self.cachet_component_name} - {self.zbx_serviceid}"
 
 
-def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
+def triggers_watcher(service_map: List[ZabbixCachetMap], zapi: Zabbix, cachet: Cachet) -> bool:
     """
     Check zabbix triggers and update Cachet components
     Zabbix Priority:
@@ -57,6 +101,7 @@ def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
         4 - Fixed
     @return: boolean
     """
+    config = Config()
     for i in service_map:  # type: ZabbixCachetMap
         # inc_status = 1
         # comp_status = 1
@@ -79,9 +124,9 @@ def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
                 # component not operational mode. Resolve it.
                 last_inc = cachet.get_incident(i.cachet_component_id)
                 if str(last_inc['id']) != '0':
-                    if resolving_tmpl:
-                        inc_msg = resolving_tmpl.format(
-                            time=datetime.datetime.now(tz=tz).strftime('%b %d, %H:%M'),
+                    if config.templates['resolving']:
+                        inc_msg = config.templates['resolving'].format(
+                            time=datetime.datetime.now(tz=config.tz).strftime('%b %d, %H:%M'),
                         ) + cachet.get_incident(i.cachet_component_id)['message']
                     else:
                         inc_msg = cachet.get_incident(i.cachet_component_id)['message']
@@ -126,9 +171,9 @@ def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
                     # TODO: Add timezone?
                     #       Move format to config file
                     author = msg.get('name', '') + ' ' + msg.get('surname', '')
-                    ack_time = datetime.datetime.fromtimestamp(int(msg['clock']), tz=tz).strftime(
+                    ack_time = datetime.datetime.fromtimestamp(int(msg['clock']), tz=config.tz).strftime(
                         '%b %d, %H:%M')
-                    ack_msg = acknowledgement_tmpl.format(
+                    ack_msg = config.templates['acknowledgement'].format(
                         message=msg['message'],
                         ack_time=ack_time,
                         author=author
@@ -146,14 +191,14 @@ def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
             else:
                 comp_status = 2
 
-            if not inc_msg and investigating_tmpl:
+            if not inc_msg and config.templates['']:
                 if zbx_event:
                     zbx_event_clock = int(zbx_event.get('clock'))
-                    zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock, tz=tz).strftime(
+                    zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock, tz=config.tz).strftime(
                         '%b %d, %H:%M')
                 else:
                     zbx_event_time = ''
-                inc_msg = investigating_tmpl.format(
+                inc_msg = config.templates['investigation'].format(
                     group=i.cachet_group_name,
                     component=i.cachet_component_name,
                     time=zbx_event_time,
@@ -184,12 +229,14 @@ def triggers_watcher(service_map: List[ZabbixCachetMap]) -> bool:
     return True
 
 
-def triggers_watcher_worker(service_map, interval, tr_event):
+def triggers_watcher_worker(service_map, interval, tr_event: threading.Event, zapi: Zabbix, cachet: Cachet):
     """
     Worker for triggers_watcher. Run it continuously with specific interval
     @param service_map: list of tuples
     @param interval: interval in seconds
     @param tr_event: treading.Event object
+    @param zapi: Zabbix object
+    @param cachet: Cachet object
     @return:
     """
     logging.info('start trigger watcher')
@@ -198,7 +245,7 @@ def triggers_watcher_worker(service_map, interval, tr_event):
         # Do not run if Zabbix is not available
         if zapi.get_version():
             try:
-                triggers_watcher(service_map)
+                triggers_watcher(service_map, zapi=zapi, cachet=cachet)
             except Exception as e:
                 logging.error('triggers_watcher() raised an Exception. Something gone wrong')
                 logging.error(e, exc_info=True)
@@ -208,11 +255,13 @@ def triggers_watcher_worker(service_map, interval, tr_event):
     logging.info('end trigger watcher')
 
 
-def init_cachet(services: List[ZabbixService]) -> List[ZabbixCachetMap]:
+def init_cachet(services: List[ZabbixService], zapi: Zabbix, cachet: Cachet) -> List[ZabbixCachetMap]:
     """
     Init Cachet by syncing Zabbix service to it
     Also func create mapping batten Cachet components and Zabbix IT services
-    @param services: list of ZabbixService
+    :param services: list of ZabbixService
+    :param cachet: Cachet object
+    :param zapi: Zabbix object
     @return: list of tuples
     """
     # Zabbix Triggers to Cachet components id map
@@ -291,65 +340,39 @@ def read_config(config_f):
     return None
 
 
-if __name__ == '__main__':
-
-    if os.getenv('CONFIG_FILE') is not None:
-        config_file = os.environ['CONFIG_FILE']
-    else:
-        config_file = os.path.dirname(os.path.realpath(__file__)) + '/config.yml'
-    if not os.path.isfile(config_file):
-        logging.error(f"Config file {config_file} is absent. Set CONFIG_FILE to change path or create it there.")
-        sys.exit(1)
-    config = read_config(config_file)
-    if not config:
-        sys.exit(1)
-    ZABBIX = config['zabbix']
-    CACHET = config['cachet']
-    SETTINGS = config['settings']
-
-    if SETTINGS.get('time_zone'):
-        tz = pytz.timezone(SETTINGS['time_zone'])
-    else:
-        tz = None
-
-    # Templates for incident displaying
-    acknowledgement_tmpl_default = "{message}\n\n###### {ack_time} by {author}\n\n______\n"
-    templates = config.get('templates')
-    if templates:
-        acknowledgement_tmpl = templates.get('acknowledgement', acknowledgement_tmpl_default)
-        investigating_tmpl = templates.get('investigating', '')
-        resolving_tmpl = templates.get('resolving', '')
-    else:
-        acknowledgement_tmpl = acknowledgement_tmpl_default
-
+def main():
     exit_status = 0
+    config = Config()
+
     # Set Logging
-    log_level = logging.getLevelName(SETTINGS['log_level'])
-    log_level_requests = logging.getLevelName(SETTINGS['log_level_requests'])
+    log_level = logging.getLevelName(config.app_settings['log_level'])
+    log_level_requests = logging.getLevelName(config.app_settings['log_level_requests'])
     logging.basicConfig(
         level=log_level,
         format='%(asctime)s %(levelname)s: (%(threadName)s) %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S %Z'
     )
     logging.getLogger("requests").setLevel(log_level_requests)
-    logging.info(f'Zabbix Cachet v.{__version__} started (config: {config_file})')
+    logging.info(f'Zabbix Cachet v.{__version__} started (config: {config.config_file})')
     inc_update_t = threading.Thread()
     event = threading.Event()
     try:
-        zapi = Zabbix(ZABBIX['server'], ZABBIX['user'], ZABBIX['pass'], ZABBIX['https-verify'])
-        cachet = Cachet(CACHET['server'], CACHET['token'], CACHET['https-verify'])
+        zapi = Zabbix(config.zabbix_config['server'], config.zabbix_config['user'], config.zabbix_config['pass'],
+                      config.zabbix_config['https-verify'])
+        cachet = Cachet(config.cachet_config['server'], config.cachet_config['token'],
+                        config.cachet_config['https-verify'])
         logging.info('Zabbix ver: {}. Cachet ver: {}'.format(zapi.version, cachet.version))
         zbxtr2cachet = ''
         while True:
             try:
                 logging.debug('Getting list of Zabbix IT Services ...')
-                it_services = zapi.get_itservices(SETTINGS['root_service'])
+                it_services = zapi.get_itservices(config.app_settings['root_service'])
                 logging.debug('Zabbix IT Services: {}'.format(it_services))
                 # Create Cachet components and components groups
                 logging.debug('Syncing Zabbix with Cachet...')
-                zbxtr2cachet_new = init_cachet(it_services)
+                zbxtr2cachet_new = init_cachet(it_services, zapi, cachet)
             except ZabbixNotAvailable:
-                time.sleep(SETTINGS['update_comp_interval'])
+                time.sleep(config.app_settings['update_comp_interval'])
                 continue
             except ZabbixCachetException:
                 zbxtr2cachet_new = False
@@ -375,10 +398,11 @@ if __name__ == '__main__':
                 event.clear()
                 inc_update_t = threading.Thread(name='Trigger Watcher',
                                                 target=triggers_watcher_worker,
-                                                args=(zbxtr2cachet, SETTINGS['update_inc_interval'], event))
+                                                args=(zbxtr2cachet, config.app_settings['update_inc_interval'], event,
+                                                      zapi, cachet))
                 inc_update_t.daemon = True
                 inc_update_t.start()
-            time.sleep(SETTINGS['update_comp_interval'])
+            time.sleep(config.app_settings['update_comp_interval'])
 
     except KeyboardInterrupt:
         event.set()
@@ -387,3 +411,7 @@ if __name__ == '__main__':
         logging.exception(error)
         exit_status = 1
     sys.exit(exit_status)
+
+
+if __name__ == '__main__':
+    main()
