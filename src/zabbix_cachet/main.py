@@ -23,7 +23,15 @@ from zabbix_cachet.zabbix import Zabbix, ZabbixService
 
 __author__ = 'Artem Aleksandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '2.1.1'
+__version__ = '2.1.2'
+
+
+@dataclass
+class ConfigTemplates:
+    acknowledgement: str = "{message}\n\n###### {ack_time} by {author}\n\n______\n"
+    acknowledgement_time_strftime: str = '%b %d, %H:%M %z'
+    investigating: str = ''
+    resolving: str = ''
 
 
 class Config:
@@ -56,17 +64,7 @@ class Config:
             else:
                 self.tz = None
 
-            incident_templates_defaults = {
-                'acknowledgement': "{message}\n\n###### {ack_time} by {author}\n\n______\n",
-                'investigation': '',
-                'resolving': '',
-            }
-
-            self.templates = config.get('templates')
-            for template_name, default_value in incident_templates_defaults.items():
-                if self.templates.get(template_name, None) is None:
-                    self.templates[template_name] = default_value
-
+            self.templates = ConfigTemplates(**config.get('templates'))
             self.initialized = True
 
 
@@ -102,6 +100,11 @@ def triggers_watcher(service_map: List[ZabbixCachetMap], zapi: Zabbix, cachet: C
         2 - Identified - You've found the issue, and you're working on a fix.
         3 - Watching - You've since deployed a fix, and you're currently watching the situation. # Does not use for now
         4 - Fixed
+
+    Zabbix Trigger <> Cachet Incident mapping
+        New - Investigating
+        Acknowledged - Identified
+        Resolved - Fixed
     @return: boolean
     """
     config = Config()
@@ -127,12 +130,9 @@ def triggers_watcher(service_map: List[ZabbixCachetMap], zapi: Zabbix, cachet: C
                 # component not operational mode. Resolve it.
                 last_inc = cachet.get_incident(i.cachet_component_id)
                 if str(last_inc['id']) != '0':
-                    if config.templates['resolving']:
-                        inc_msg = config.templates['resolving'].format(
-                            time=datetime.datetime.now(tz=config.tz).strftime('%b %d, %H:%M'),
-                        ) + cachet.get_incident(i.cachet_component_id)['message']
-                    else:
-                        inc_msg = cachet.get_incident(i.cachet_component_id)['message']
+                    inc_msg = config.templates.resolving.format(
+                        time=datetime.datetime.now(tz=config.tz).strftime('%b %d, %H:%M'),
+                    ) + cachet.get_incident(i.cachet_component_id)['message']
                     cachet.upd_incident(last_inc['id'],
                                         status=4,
                                         component_id=i.cachet_component_id,
@@ -171,12 +171,10 @@ def triggers_watcher(service_map: List[ZabbixCachetMap], zapi: Zabbix, cachet: C
             if zbx_event.get('acknowledged', '0') == '1':
                 inc_status = 2
                 for msg in zbx_event['acknowledges']:  # type: dict
-                    # TODO: Add timezone?
-                    #       Move format to config file
                     author = msg.get('name', '') + ' ' + msg.get('surname', '')
-                    ack_time = datetime.datetime.fromtimestamp(int(msg['clock']), tz=config.tz).strftime(
-                        '%b %d, %H:%M')
-                    ack_msg = config.templates['acknowledgement'].format(
+                    ack_time = (datetime.datetime.fromtimestamp(int(msg['clock']), tz=config.tz).
+                                strftime(config.templates.acknowledgement_time_strftime))
+                    ack_msg = config.templates.acknowledgement.format(
                         message=msg['message'],
                         ack_time=ack_time,
                         author=author
@@ -194,14 +192,14 @@ def triggers_watcher(service_map: List[ZabbixCachetMap], zapi: Zabbix, cachet: C
             else:
                 comp_status = 2
 
-            if not inc_msg and config.templates['']:
+            if not inc_msg and config.templates.investigating:
                 if zbx_event:
                     zbx_event_clock = int(zbx_event.get('clock'))
                     zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock, tz=config.tz).strftime(
                         '%b %d, %H:%M')
                 else:
                     zbx_event_time = ''
-                inc_msg = config.templates['investigation'].format(
+                inc_msg = config.templates.investigating.format(
                     group=i.cachet_group_name,
                     component=i.cachet_component_name,
                     time=zbx_event_time,
@@ -209,6 +207,7 @@ def triggers_watcher(service_map: List[ZabbixCachetMap], zapi: Zabbix, cachet: C
                     trigger_name=trigger.get('description', ''),
                 )
 
+            # Just in case when user set investigating template to empty string
             if not inc_msg and trigger.get('comments'):
                 inc_msg = trigger.get('comments')
             elif not inc_msg:

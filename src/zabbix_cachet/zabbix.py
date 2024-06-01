@@ -119,6 +119,7 @@ class Zabbix:
     @pyzabbix_safe({})
     def get_event(self, triggerid):
         """
+        https://www.zabbix.com/documentation/current/en/manual/api/reference/event/get
         Get event information based on triggerid
         @param triggerid: string
         @return: dict of data
@@ -128,7 +129,9 @@ class Zabbix:
             expandDescription='true',
             object=0,
             value=1,
-            objectids=triggerid)
+            objectids=triggerid,
+            sortfield=['clock']
+        )
         if len(zbx_event) >= 1:
             return zbx_event[-1]
         return zbx_event

@@ -45,7 +45,11 @@ templates:
     ###### {ack_time} by {author}
     ______
 
-  # Template for new incinents (investigating)
+  # Time format for  acknowledgement template (ack_time)
+  # Formats accepted: https://docs.python.org/3/library/datetime.html#strftime-and-strptime-behavior
+  acknowledgement_time_strftime: '%b %d, %H:%M %z'
+
+  # Template for new incidents (investigating)
   # Supported fields:
   #   group: Cachet Group
   #   component: Cachet Component
@@ -57,9 +61,9 @@ templates:
 
     ```{trigger_name}```
 
-  # Template for resolved incinents (resolving)
+  # Template for resolved incidents (resolving)
   # Supported fields:
-  #   time: Incindent resolved time in Cachet
+  #   time: Incident resolved time in Cachet
   resolving: |
     __Resolved__ - {time}
     ______
