@@ -9,7 +9,7 @@ import requests
 import urllib3
 from pyzabbix import ZabbixAPI, ZabbixAPIException
 
-from zabbix_cachet.excepltions import InvalidConfig, ZabbixNotAvailable, ZabbixCachetException
+from zabbix_cachet.excepltions import InvalidConfig, ZabbixNotAvailable, ZabbixCachetException, ZabbixServiceNotFound
 
 
 def pyzabbix_safe(fail_result=False):
@@ -126,7 +126,6 @@ class Zabbix:
         """
         zbx_event = self.zapi.event.get(
             select_acknowledges='extend',
-            expandDescription='true',
             object=0,
             value=1,
             objectids=triggerid,
@@ -243,7 +242,6 @@ class Zabbix:
                                     f"you use Zabbix version {self.version}")
         return monitor_services
 
-
     def get_zabbix_service(self, serviceid: str) -> ZabbixService:
         """
         Method which primary should be used in zabbix-cachet code
@@ -251,4 +249,6 @@ class Zabbix:
         :return:
         """
         service = self.get_service(serviceid=serviceid)
+        if len(service) < 1:
+            raise ZabbixServiceNotFound(f"No one service returned by serviceid - {serviceid}")
         return self._init_zabbix_it_service(service[0])

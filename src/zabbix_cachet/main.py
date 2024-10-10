@@ -18,7 +18,7 @@ import yaml
 import pytz
 
 from zabbix_cachet.cachet import Cachet
-from zabbix_cachet.excepltions import ZabbixNotAvailable, ZabbixCachetException
+from zabbix_cachet.excepltions import ZabbixNotAvailable, ZabbixCachetException, ZabbixServiceNotFound
 from zabbix_cachet.zabbix import Zabbix, ZabbixService
 
 __author__ = 'Artem Aleksandrov <qk4l()tem4uk.ru>'
@@ -114,7 +114,11 @@ def triggers_watcher(service_map: List[ZabbixCachetMap], zapi: Zabbix, cachet: C
         # inc_name = ''
         inc_msg = ''
 
-        service = zapi.get_zabbix_service(serviceid=i.zbx_serviceid)
+        try:
+            service = zapi.get_zabbix_service(serviceid=i.zbx_serviceid)
+        except ZabbixServiceNotFound as err:
+            logging.warning(f"Skip service with serviceid {i.zbx_serviceid} because it was not found in Zabbix: {err}")
+            continue
 
         cache_component = cachet.get_component(i.cachet_component_id)
         if not cache_component:
@@ -193,8 +197,8 @@ def triggers_watcher(service_map: List[ZabbixCachetMap], zapi: Zabbix, cachet: C
                 comp_status = 2
 
             if not inc_msg and config.templates.investigating:
-                if zbx_event:
-                    zbx_event_clock = int(zbx_event.get('clock'))
+                zbx_event_clock = int(zbx_event.get('clock', 0))
+                if zbx_event_clock:
                     zbx_event_time = datetime.datetime.fromtimestamp(zbx_event_clock, tz=config.tz).strftime(
                         '%b %d, %H:%M')
                 else:
@@ -301,7 +305,7 @@ def init_cachet(services: List[ZabbixService], zapi: Zabbix, cachet: Cachet) -> 
                 )
                 data.append(zxb2cachet_i)
         else:
-            if zbx_service.triggerid:
+            if zbx_service.triggerid and zbx_service.triggerid != '0':
                 trigger = zapi.get_trigger(triggerid=zbx_service.triggerid)[0]
                 if not trigger:
                     logging.error('Failed to get trigger {} from Zabbix'.format(zbx_service.triggerid))
