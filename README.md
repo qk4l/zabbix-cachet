@@ -33,7 +33,7 @@ items of services that is exported to Cachet and Cachet`s API key.
 
 # Requirements
 * Cachet 2.2, 2.3
-* Zabbix 2.X, 3.X, 4.0, 5.0, 6.0, 6.4
+* Zabbix 2.X, 3.X, 4.0, 5.0, 6.0, 6.4, 7.0
 * python 3.6+
 
 # Installation
