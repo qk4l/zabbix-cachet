@@ -23,7 +23,7 @@ from zabbix_cachet.zabbix import Zabbix, ZabbixService
 
 __author__ = 'Artem Aleksandrov <qk4l()tem4uk.ru>'
 __license__ = """The MIT License (MIT)"""
-__version__ = '2.1.2'
+__version__ = '2.1.4'
 
 
 @dataclass
