@@ -230,8 +230,12 @@ class Zabbix:
                 raise ZabbixCachetException(f'Can not find uniq "{root_name}" service in Zabbix')
             monitor_services = self._init_zabbix_it_service(root_service[0]).children
         else:
-            # TODO: Add support after 6.0
-            if self.version_major < 6:
+            if self.version_major >= 6:
+                services = self.get_service()
+                for i in services:
+                    if len(i['children']) > 0:
+                        monitor_services.append(self._init_zabbix_it_service(i))
+            elif self.version_major < 6:
                 services = self.get_service()
                 for i in services:
                     # Do not proceed non-root services directly
